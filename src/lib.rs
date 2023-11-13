@@ -26,6 +26,15 @@ impl Project {
     pub fn stage(&mut self) -> &mut Target {
         &mut self.targets[0]
     }
+
+    pub fn add_sprite(&mut self, name: String) -> &mut Target {
+        let target = Target {
+            name,
+            costumes: Vec::new(),
+        };
+        self.targets.push(target);
+        self.targets.last_mut().unwrap_or_else(|| unreachable!())
+    }
 }
 
 pub struct Target {
