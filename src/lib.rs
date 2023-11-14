@@ -31,16 +31,17 @@ impl Default for Project {
 
 impl Project {
     pub fn stage(&mut self) -> Target {
-        Target {
-            inner: &mut self.targets[0],
-            builder: &mut self.builder,
-        }
+        self.target(0)
     }
 
     pub fn add_sprite(&mut self, name: String) -> Target {
         self.targets.push(RealTarget::new(name));
+        self.target(self.targets.len() - 1)
+    }
+
+    fn target(&mut self, index: usize) -> Target {
         Target {
-            inner: self.targets.last_mut().unwrap_or_else(|| unreachable!()),
+            inner: &mut self.targets[index],
             builder: &mut self.builder,
         }
     }
