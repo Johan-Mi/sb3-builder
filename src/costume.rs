@@ -43,7 +43,7 @@ impl Costume {
         &self,
         zip: &mut zip::ZipWriter<impl Write + Seek>,
     ) -> zip::result::ZipResult<()> {
-        zip.start_file(&self.md5ext, Default::default())?;
+        zip.start_file(&self.md5ext, zip::write::FileOptions::default())?;
         zip.write_all(&self.content)?;
         Ok(())
     }

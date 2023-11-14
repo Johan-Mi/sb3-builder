@@ -13,7 +13,7 @@ impl Project {
             costume.add_to_archive(&mut zip)?;
         }
 
-        zip.start_file("project.json", Default::default())?;
+        zip.start_file("project.json", zip::write::FileOptions::default())?;
         let targets = self
             .targets
             .into_iter()
