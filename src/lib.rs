@@ -3,47 +3,82 @@
 
 mod costume;
 mod finish;
+mod uid;
 
 pub use costume::Costume;
 
+use uid::Uid;
+
 pub struct Project {
-    targets: Vec<Target>,
+    builder: Builder,
+    targets: Vec<RealTarget>,
 }
 
 impl Default for Project {
     fn default() -> Self {
-        let stage = Target {
+        let builder = Builder {
+            uid_generator: uid::Generator::default(),
+        };
+        let stage = RealTarget {
             name: "Stage".to_owned(),
             costumes: Vec::new(),
+            variables: Vec::new(),
         };
         Self {
+            builder,
             targets: vec![stage],
         }
     }
 }
 
 impl Project {
-    pub fn stage(&mut self) -> &mut Target {
-        &mut self.targets[0]
+    pub fn stage(&mut self) -> Target {
+        Target {
+            inner: &mut self.targets[0],
+            builder: &mut self.builder,
+        }
     }
 
-    pub fn add_sprite(&mut self, name: String) -> &mut Target {
-        let target = Target {
+    pub fn add_sprite(&mut self, name: String) -> Target {
+        let target = RealTarget {
             name,
             costumes: Vec::new(),
+            variables: Vec::new(),
         };
         self.targets.push(target);
-        self.targets.last_mut().unwrap_or_else(|| unreachable!())
+        Target {
+            inner: self.targets.last_mut().unwrap_or_else(|| unreachable!()),
+            builder: &mut self.builder,
+        }
     }
 }
 
-pub struct Target {
+struct Builder {
+    uid_generator: uid::Generator,
+}
+
+struct RealTarget {
     name: String,
     costumes: Vec<Costume>,
+    variables: Vec<(Variable, Uid)>,
 }
 
-impl Target {
+pub struct Target<'a> {
+    inner: &'a mut RealTarget,
+    builder: &'a mut Builder,
+}
+
+impl Target<'_> {
     pub fn add_costume(&mut self, costume: Costume) {
-        self.costumes.push(costume);
+        self.inner.costumes.push(costume);
     }
+
+    pub fn add_variable(&mut self, variable: Variable) {
+        let id = self.builder.uid_generator.new_uid();
+        self.inner.variables.push((variable, id));
+    }
+}
+
+pub struct Variable {
+    pub name: String,
 }

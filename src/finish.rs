@@ -1,4 +1,4 @@
-use crate::{Costume, Project, Target};
+use crate::{uid::Uid, Costume, Project, RealTarget};
 use serde::Serialize;
 use std::{collections::HashMap, io};
 
@@ -17,7 +17,7 @@ impl Project {
         let targets = self
             .targets
             .into_iter()
-            .map(Target::finish)
+            .map(RealTarget::finish)
             .collect::<Box<_>>();
         let finished_project = FinishedProject {
             meta: Meta { semver: "3.0.0" },
@@ -48,21 +48,26 @@ struct FinishedTarget {
     current_costume: usize,
     costumes: Vec<Costume>,
     sounds: &'static [()],
-    variables: HashMap<(), ()>,
+    variables: HashMap<Uid, (String, f64)>,
     lists: HashMap<(), ()>,
     blocks: HashMap<(), ()>,
 }
 
-impl Target {
+impl RealTarget {
     fn finish(self) -> FinishedTarget {
         let is_stage = self.name == "Stage";
+        let variables = self
+            .variables
+            .into_iter()
+            .map(|(var, id)| (id, (var.name, 0.0)))
+            .collect();
         FinishedTarget {
             name: self.name,
             is_stage,
             current_costume: 0,
             costumes: self.costumes,
             sounds: &[],
-            variables: HashMap::new(),
+            variables,
             lists: HashMap::new(),
             blocks: HashMap::new(),
         }
