@@ -7,6 +7,8 @@ mod uid;
 
 pub use costume::Costume;
 
+use serde::Serialize;
+use std::collections::HashMap;
 use uid::Uid;
 
 pub struct Project {
@@ -22,8 +24,8 @@ impl Default for Project {
         let stage = RealTarget {
             name: "Stage".to_owned(),
             costumes: Vec::new(),
-            variables: Vec::new(),
-            lists: Vec::new(),
+            variables: HashMap::new(),
+            lists: HashMap::new(),
         };
         Self {
             builder,
@@ -44,8 +46,8 @@ impl Project {
         let target = RealTarget {
             name,
             costumes: Vec::new(),
-            variables: Vec::new(),
-            lists: Vec::new(),
+            variables: HashMap::new(),
+            lists: HashMap::new(),
         };
         self.targets.push(target);
         Target {
@@ -62,8 +64,8 @@ struct Builder {
 struct RealTarget {
     name: String,
     costumes: Vec<Costume>,
-    variables: Vec<(Variable, Uid)>,
-    lists: Vec<(List, Uid)>,
+    variables: HashMap<Uid, Variable>,
+    lists: HashMap<Uid, List>,
 }
 
 pub struct Target<'a> {
@@ -78,12 +80,12 @@ impl Target<'_> {
 
     pub fn add_variable(&mut self, variable: Variable) {
         let id = self.builder.uid_generator.new_uid();
-        self.inner.variables.push((variable, id));
+        self.inner.variables.insert(id, variable);
     }
 
     pub fn add_list(&mut self, list: List) {
         let id = self.builder.uid_generator.new_uid();
-        self.inner.lists.push((list, id));
+        self.inner.lists.insert(id, list);
     }
 }
 
@@ -91,6 +93,24 @@ pub struct Variable {
     pub name: String,
 }
 
+impl Serialize for Variable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (&*self.name, 0.0).serialize(serializer)
+    }
+}
+
 pub struct List {
     pub name: String,
+}
+
+impl Serialize for List {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (&*self.name, [(); 0]).serialize(serializer)
+    }
 }

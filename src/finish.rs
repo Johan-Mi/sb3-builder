@@ -1,4 +1,4 @@
-use crate::{uid::Uid, Costume, Project, RealTarget};
+use crate::{uid::Uid, Costume, List, Project, RealTarget, Variable};
 use serde::Serialize;
 use std::{collections::HashMap, io};
 
@@ -48,32 +48,22 @@ struct FinishedTarget {
     current_costume: usize,
     costumes: Vec<Costume>,
     sounds: &'static [()],
-    variables: HashMap<Uid, (String, f64)>,
-    lists: HashMap<Uid, (String, [(); 0])>,
+    variables: HashMap<Uid, Variable>,
+    lists: HashMap<Uid, List>,
     blocks: HashMap<(), ()>,
 }
 
 impl RealTarget {
     fn finish(self) -> FinishedTarget {
         let is_stage = self.name == "Stage";
-        let variables = self
-            .variables
-            .into_iter()
-            .map(|(var, id)| (id, (var.name, 0.0)))
-            .collect();
-        let lists = self
-            .lists
-            .into_iter()
-            .map(|(list, id)| (id, (list.name, [])))
-            .collect();
         FinishedTarget {
             name: self.name,
             is_stage,
             current_costume: 0,
             costumes: self.costumes,
             sounds: &[],
-            variables,
-            lists,
+            variables: self.variables,
+            lists: self.lists,
             blocks: HashMap::new(),
         }
     }
