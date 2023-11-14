@@ -49,7 +49,7 @@ struct FinishedTarget {
     costumes: Vec<Costume>,
     sounds: &'static [()],
     variables: HashMap<Uid, (String, f64)>,
-    lists: HashMap<(), ()>,
+    lists: HashMap<Uid, (String, [(); 0])>,
     blocks: HashMap<(), ()>,
 }
 
@@ -61,6 +61,11 @@ impl RealTarget {
             .into_iter()
             .map(|(var, id)| (id, (var.name, 0.0)))
             .collect();
+        let lists = self
+            .lists
+            .into_iter()
+            .map(|(list, id)| (id, (list.name, [])))
+            .collect();
         FinishedTarget {
             name: self.name,
             is_stage,
@@ -68,7 +73,7 @@ impl RealTarget {
             costumes: self.costumes,
             sounds: &[],
             variables,
-            lists: HashMap::new(),
+            lists,
             blocks: HashMap::new(),
         }
     }

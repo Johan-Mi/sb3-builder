@@ -23,6 +23,7 @@ impl Default for Project {
             name: "Stage".to_owned(),
             costumes: Vec::new(),
             variables: Vec::new(),
+            lists: Vec::new(),
         };
         Self {
             builder,
@@ -44,6 +45,7 @@ impl Project {
             name,
             costumes: Vec::new(),
             variables: Vec::new(),
+            lists: Vec::new(),
         };
         self.targets.push(target);
         Target {
@@ -61,6 +63,7 @@ struct RealTarget {
     name: String,
     costumes: Vec<Costume>,
     variables: Vec<(Variable, Uid)>,
+    lists: Vec<(List, Uid)>,
 }
 
 pub struct Target<'a> {
@@ -77,8 +80,17 @@ impl Target<'_> {
         let id = self.builder.uid_generator.new_uid();
         self.inner.variables.push((variable, id));
     }
+
+    pub fn add_list(&mut self, list: List) {
+        let id = self.builder.uid_generator.new_uid();
+        self.inner.lists.push((list, id));
+    }
 }
 
 pub struct Variable {
+    pub name: String,
+}
+
+pub struct List {
     pub name: String,
 }
