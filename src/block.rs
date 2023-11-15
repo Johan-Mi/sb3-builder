@@ -30,9 +30,9 @@ pub struct Stacking {
 }
 
 impl From<Stacking> for Block {
-    fn from(hat: Stacking) -> Self {
+    fn from(stacking: Stacking) -> Self {
         Self {
-            opcode: hat.opcode,
+            opcode: stacking.opcode,
             parent: None,
             next: None,
             top_level: false,
