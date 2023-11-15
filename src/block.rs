@@ -1,13 +1,24 @@
 use crate::uid::Uid;
-use serde::Serialize;
+use serde::{ser::SerializeStruct, Serialize};
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct Block {
     opcode: &'static str,
     pub(crate) parent: Option<Uid>,
     pub(crate) next: Option<Uid>,
-    top_level: bool,
+}
+
+impl Serialize for Block {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("Block", 4)?;
+        s.serialize_field("opcode", self.opcode)?;
+        s.serialize_field("parent", &self.parent)?;
+        s.serialize_field("next", &self.next)?;
+        s.serialize_field("topLevel", &self.parent.is_none())?;
+        s.end()
+    }
 }
 
 pub struct Hat {
@@ -20,7 +31,6 @@ impl From<Hat> for Block {
             opcode: hat.opcode,
             parent: None,
             next: None,
-            top_level: true,
         }
     }
 }
@@ -35,7 +45,6 @@ impl From<Stacking> for Block {
             opcode: stacking.opcode,
             parent: None,
             next: None,
-            top_level: false,
         }
     }
 }
