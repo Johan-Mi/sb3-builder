@@ -5,8 +5,8 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Block {
     opcode: &'static str,
-    parent: Option<Uid>,
-    next: Option<Uid>,
+    pub(crate) parent: Option<Uid>,
+    pub(crate) next: Option<Uid>,
     top_level: bool,
 }
 
@@ -25,9 +25,31 @@ impl From<Hat> for Block {
     }
 }
 
+pub struct Stacking {
+    opcode: &'static str,
+}
+
+impl From<Stacking> for Block {
+    fn from(hat: Stacking) -> Self {
+        Self {
+            opcode: hat.opcode,
+            parent: None,
+            next: None,
+            top_level: false,
+        }
+    }
+}
+
 #[must_use]
 pub const fn when_flag_clicked() -> Hat {
     Hat {
         opcode: "event_whenflagclicked",
+    }
+}
+
+#[must_use]
+pub const fn reset_timer() -> Stacking {
+    Stacking {
+        opcode: "sensing_resettimer",
     }
 }

@@ -107,6 +107,25 @@ impl Target<'_> {
         self.inner.blocks.insert(id, hat.into());
         self.parent = Some(id);
     }
+
+    pub fn put(&mut self, block: block::Stacking) {
+        let mut block = block::Block::from(block);
+        block.parent = self.parent;
+        let id = self.builder.uid_generator.new_uid();
+        self.inner.blocks.insert(id, block);
+        self.set_next(id);
+        self.parent = Some(id);
+    }
+
+    fn set_next(&mut self, next: Uid) {
+        if let Some(parent) = self.parent {
+            self.inner
+                .blocks
+                .get_mut(&parent)
+                .expect("parent block does not exist")
+                .next = Some(next);
+        }
+    }
 }
 
 pub struct Variable {
