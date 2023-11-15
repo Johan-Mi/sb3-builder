@@ -1,8 +1,6 @@
-use crate::{
-    block::Block, uid::Uid, Costume, List, Project, RealTarget, Variable,
-};
+use crate::{Project, RealTarget};
 use serde::Serialize;
-use std::{collections::HashMap, io};
+use std::io;
 
 impl Project {
     pub fn finish(
@@ -16,14 +14,9 @@ impl Project {
         }
 
         zip.start_file("project.json", zip::write::FileOptions::default())?;
-        let targets = self
-            .targets
-            .into_iter()
-            .map(RealTarget::finish)
-            .collect::<Box<_>>();
         let finished_project = FinishedProject {
             meta: Meta { semver: "3.0.0" },
-            targets: &targets,
+            targets: &self.targets,
         };
         serde_json::to_writer(zip, &finished_project)?;
 
@@ -34,38 +27,10 @@ impl Project {
 #[derive(Serialize)]
 struct FinishedProject<'a> {
     meta: Meta,
-    targets: &'a [FinishedTarget],
+    targets: &'a [RealTarget],
 }
 
 #[derive(Serialize)]
 struct Meta {
     semver: &'static str,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FinishedTarget {
-    name: String,
-    is_stage: bool,
-    current_costume: usize,
-    costumes: Vec<Costume>,
-    sounds: &'static [()],
-    variables: HashMap<Uid, Variable>,
-    lists: HashMap<Uid, List>,
-    blocks: HashMap<Uid, Block>,
-}
-
-impl RealTarget {
-    fn finish(self) -> FinishedTarget {
-        FinishedTarget {
-            name: self.name,
-            is_stage: self.is_stage,
-            current_costume: 0,
-            costumes: self.costumes,
-            sounds: &[],
-            variables: self.variables,
-            lists: self.lists,
-            blocks: self.blocks,
-        }
-    }
 }

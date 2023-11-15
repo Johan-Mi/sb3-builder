@@ -53,10 +53,14 @@ struct Builder {
     uid_generator: uid::Generator,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RealTarget {
     name: String,
     is_stage: bool,
+    current_costume: usize,
     costumes: Vec<Costume>,
+    sounds: &'static [()],
     variables: HashMap<Uid, Variable>,
     lists: HashMap<Uid, List>,
     blocks: HashMap<Uid, block::Block>,
@@ -67,7 +71,9 @@ impl RealTarget {
         Self {
             name,
             is_stage,
+            current_costume: 0,
             costumes: Vec::new(),
+            sounds: &[],
             variables: HashMap::new(),
             lists: HashMap::new(),
             blocks: HashMap::new(),
