@@ -1,4 +1,6 @@
-use crate::{uid::Uid, Costume, List, Project, RealTarget, Variable};
+use crate::{
+    block::Block, uid::Uid, Costume, List, Project, RealTarget, Variable,
+};
 use serde::Serialize;
 use std::{collections::HashMap, io};
 
@@ -50,7 +52,7 @@ struct FinishedTarget {
     sounds: &'static [()],
     variables: HashMap<Uid, Variable>,
     lists: HashMap<Uid, List>,
-    blocks: HashMap<(), ()>,
+    blocks: HashMap<Uid, Block>,
 }
 
 impl RealTarget {
@@ -64,7 +66,7 @@ impl RealTarget {
             sounds: &[],
             variables: self.variables,
             lists: self.lists,
-            blocks: HashMap::new(),
+            blocks: self.blocks,
         }
     }
 }

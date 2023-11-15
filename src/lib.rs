@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::nursery, clippy::pedantic, clippy::unwrap_used)]
 
+pub mod block;
 mod costume;
 mod finish;
 mod uid;
@@ -43,6 +44,7 @@ impl Project {
         Target {
             inner: &mut self.targets[index],
             builder: &mut self.builder,
+            parent: None,
         }
     }
 }
@@ -56,6 +58,7 @@ struct RealTarget {
     costumes: Vec<Costume>,
     variables: HashMap<Uid, Variable>,
     lists: HashMap<Uid, List>,
+    blocks: HashMap<Uid, block::Block>,
 }
 
 impl RealTarget {
@@ -65,6 +68,7 @@ impl RealTarget {
             costumes: Vec::new(),
             variables: HashMap::new(),
             lists: HashMap::new(),
+            blocks: HashMap::new(),
         }
     }
 }
@@ -72,6 +76,7 @@ impl RealTarget {
 pub struct Target<'a> {
     inner: &'a mut RealTarget,
     builder: &'a mut Builder,
+    parent: Option<Uid>,
 }
 
 impl Target<'_> {
@@ -87,6 +92,12 @@ impl Target<'_> {
     pub fn add_list(&mut self, list: List) {
         let id = self.builder.uid_generator.new_uid();
         self.inner.lists.insert(id, list);
+    }
+
+    pub fn start_script(&mut self, hat: block::Hat) {
+        let id = self.builder.uid_generator.new_uid();
+        self.inner.blocks.insert(id, hat.into());
+        self.parent = Some(id);
     }
 }
 
