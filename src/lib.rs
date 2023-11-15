@@ -22,7 +22,7 @@ impl Default for Project {
         let builder = Builder {
             uid_generator: uid::Generator::default(),
         };
-        let stage = RealTarget::new("Stage".to_owned());
+        let stage = RealTarget::new("Stage".to_owned(), true);
         Self {
             builder,
             targets: vec![stage],
@@ -36,7 +36,7 @@ impl Project {
     }
 
     pub fn add_sprite(&mut self, name: String) -> Target {
-        self.targets.push(RealTarget::new(name));
+        self.targets.push(RealTarget::new(name, false));
         self.target(self.targets.len() - 1)
     }
 
@@ -55,6 +55,7 @@ struct Builder {
 
 struct RealTarget {
     name: String,
+    is_stage: bool,
     costumes: Vec<Costume>,
     variables: HashMap<Uid, Variable>,
     lists: HashMap<Uid, List>,
@@ -62,9 +63,10 @@ struct RealTarget {
 }
 
 impl RealTarget {
-    fn new(name: String) -> Self {
+    fn new(name: String, is_stage: bool) -> Self {
         Self {
             name,
+            is_stage,
             costumes: Vec::new(),
             variables: HashMap::new(),
             lists: HashMap::new(),

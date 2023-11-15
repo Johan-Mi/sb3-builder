@@ -57,10 +57,9 @@ struct FinishedTarget {
 
 impl RealTarget {
     fn finish(self) -> FinishedTarget {
-        let is_stage = self.name == "Stage";
         FinishedTarget {
             name: self.name,
-            is_stage,
+            is_stage: self.is_stage,
             current_costume: 0,
             costumes: self.costumes,
             sounds: &[],
