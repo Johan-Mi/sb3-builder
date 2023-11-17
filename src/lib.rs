@@ -8,6 +8,7 @@ mod uid;
 
 pub use costume::Costume;
 
+use block::Input;
 use serde::Serialize;
 use std::collections::HashMap;
 use uid::Uid;
@@ -45,6 +46,7 @@ impl Project {
             inner: &mut self.targets[index],
             builder: &mut self.builder,
             parent: None,
+            place: Place::Next,
         }
     }
 }
@@ -85,6 +87,7 @@ pub struct Target<'a> {
     inner: &'a mut RealTarget,
     builder: &'a mut Builder,
     parent: Option<Uid>,
+    place: Place,
 }
 
 impl Target<'_> {
@@ -106,6 +109,7 @@ impl Target<'_> {
         let id = self.builder.uid_generator.new_uid();
         self.inner.blocks.insert(id, hat.into());
         self.parent = Some(id);
+        self.place = Place::Next;
     }
 
     pub fn put(&mut self, block: block::Stacking) {
@@ -115,17 +119,38 @@ impl Target<'_> {
         self.inner.blocks.insert(id, block);
         self.set_next(id);
         self.parent = Some(id);
+        self.place = Place::Next;
+    }
+
+    pub fn forever(&mut self) {
+        self.put(block::Stacking {
+            opcode: "control_forever",
+        });
+        self.place = Place::Substack1;
     }
 
     fn set_next(&mut self, next: Uid) {
-        if let Some(parent) = self.parent {
-            self.inner
-                .blocks
-                .get_mut(&parent)
-                .expect("parent block does not exist")
-                .next = Some(next);
+        let Some(parent) = self.parent else { return };
+        let parent = self
+            .inner
+            .blocks
+            .get_mut(&parent)
+            .expect("parent block does not exist");
+        match self.place {
+            Place::Next => parent.next = Some(next),
+            Place::Substack1 => {
+                parent
+                    .inputs
+                    .get_or_insert_with(HashMap::default)
+                    .insert("SUBSTACK", Input::Substack(next));
+            }
         }
     }
+}
+
+enum Place {
+    Next,
+    Substack1,
 }
 
 pub struct Variable {

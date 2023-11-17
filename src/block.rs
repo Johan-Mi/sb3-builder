@@ -1,10 +1,12 @@
 use crate::uid::Uid;
 use serde::{ser::SerializeStruct, Serialize};
+use std::collections::HashMap;
 
 pub(crate) struct Block {
     opcode: &'static str,
     pub(crate) parent: Option<Uid>,
     pub(crate) next: Option<Uid>,
+    pub(crate) inputs: Option<HashMap<&'static str, Input>>,
 }
 
 impl Serialize for Block {
@@ -12,11 +14,14 @@ impl Serialize for Block {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Block", 4)?;
+        let mut s = serializer.serialize_struct("Block", 5)?;
         s.serialize_field("opcode", self.opcode)?;
         s.serialize_field("parent", &self.parent)?;
         s.serialize_field("next", &self.next)?;
         s.serialize_field("topLevel", &self.parent.is_none())?;
+        if let Some(inputs) = &self.inputs {
+            s.serialize_field("inputs", inputs)?;
+        }
         s.end()
     }
 }
@@ -31,12 +36,13 @@ impl From<Hat> for Block {
             opcode: hat.opcode,
             parent: None,
             next: None,
+            inputs: None,
         }
     }
 }
 
 pub struct Stacking {
-    opcode: &'static str,
+    pub(crate) opcode: &'static str,
 }
 
 impl From<Stacking> for Block {
@@ -45,6 +51,7 @@ impl From<Stacking> for Block {
             opcode: stacking.opcode,
             parent: None,
             next: None,
+            inputs: None,
         }
     }
 }
@@ -60,5 +67,20 @@ pub const fn when_flag_clicked() -> Hat {
 pub const fn reset_timer() -> Stacking {
     Stacking {
         opcode: "sensing_resettimer",
+    }
+}
+
+pub(crate) enum Input {
+    Substack(Uid),
+}
+
+impl Serialize for Input {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::Substack(uid) => (2, uid).serialize(serializer),
+        }
     }
 }
