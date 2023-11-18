@@ -97,14 +97,16 @@ impl Target<'_> {
         self.inner.costumes.push(costume);
     }
 
-    pub fn add_variable(&mut self, variable: Variable) {
+    pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
         let id = self.builder.uid_generator.new_uid();
         self.inner.variables.insert(id, variable);
+        VariableRef(id)
     }
 
-    pub fn add_list(&mut self, list: List) {
+    pub fn add_list(&mut self, list: List) -> ListRef {
         let id = self.builder.uid_generator.new_uid();
         self.inner.lists.insert(id, list);
+        ListRef(id)
     }
 
     pub fn start_script(&mut self, hat: block::Hat) {
@@ -169,6 +171,8 @@ impl Serialize for Variable {
     }
 }
 
+pub struct VariableRef(Uid);
+
 pub struct List {
     pub name: String,
 }
@@ -181,3 +185,5 @@ impl Serialize for List {
         (&*self.name, [(); 0]).serialize(serializer)
     }
 }
+
+pub struct ListRef(Uid);
