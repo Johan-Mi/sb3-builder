@@ -4,9 +4,11 @@
 pub mod block;
 mod costume;
 mod finish;
+mod operand;
 mod uid;
 
 pub use costume::Costume;
+pub use operand::Operand;
 
 use block::Input;
 use serde::Serialize;
@@ -125,6 +127,7 @@ impl Target<'_> {
     pub fn forever(&mut self) {
         self.put(block::Stacking {
             opcode: "control_forever",
+            inputs: None,
         });
         self.place = Place::Substack1;
     }

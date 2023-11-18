@@ -1,4 +1,4 @@
-use crate::uid::Uid;
+use crate::{uid::Uid, Operand};
 use serde::{ser::SerializeStruct, Serialize};
 use std::collections::HashMap;
 
@@ -43,6 +43,7 @@ impl From<Hat> for Block {
 
 pub struct Stacking {
     pub(crate) opcode: &'static str,
+    pub(crate) inputs: Option<HashMap<&'static str, Input>>,
 }
 
 impl From<Stacking> for Block {
@@ -51,7 +52,7 @@ impl From<Stacking> for Block {
             opcode: stacking.opcode,
             parent: None,
             next: None,
-            inputs: None,
+            inputs: stacking.inputs,
         }
     }
 }
@@ -64,14 +65,24 @@ pub const fn when_flag_clicked() -> Hat {
 }
 
 #[must_use]
+pub fn move_steps(steps: Operand) -> Stacking {
+    Stacking {
+        opcode: "motion_movesteps",
+        inputs: Some([("STEPS", steps.0)].into()),
+    }
+}
+
+#[must_use]
 pub const fn reset_timer() -> Stacking {
     Stacking {
         opcode: "sensing_resettimer",
+        inputs: None,
     }
 }
 
 pub(crate) enum Input {
     Substack(Uid),
+    Number(f64),
 }
 
 impl Serialize for Input {
@@ -79,8 +90,9 @@ impl Serialize for Input {
     where
         S: serde::Serializer,
     {
-        match self {
+        match *self {
             Self::Substack(uid) => (2, uid).serialize(serializer),
+            Self::Number(n) => (1, (4, n)).serialize(serializer),
         }
     }
 }
