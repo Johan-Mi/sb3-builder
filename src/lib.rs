@@ -103,6 +103,12 @@ impl Target<'_> {
         VariableRef(id)
     }
 
+    pub fn get_variable(&mut self, variable: VariableRef) -> Operand {
+        let id = variable.0;
+        let name = self.inner.variables[&id].name.clone();
+        Operand(Input::Variable { name, id })
+    }
+
     pub fn add_list(&mut self, list: List) -> ListRef {
         let id = self.builder.uid_generator.new_uid();
         self.inner.lists.insert(id, list);
@@ -171,6 +177,7 @@ impl Serialize for Variable {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct VariableRef(Uid);
 
 pub struct List {
