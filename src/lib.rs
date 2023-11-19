@@ -47,8 +47,10 @@ impl Project {
         Target {
             inner: &mut self.targets[index],
             builder: &mut self.builder,
-            parent: None,
-            place: Place::Next,
+            point: InsertionPoint {
+                parent: None,
+                place: Place::Next,
+            },
         }
     }
 }
@@ -88,8 +90,7 @@ impl RealTarget {
 pub struct Target<'a> {
     inner: &'a mut RealTarget,
     builder: &'a mut Builder,
-    parent: Option<Uid>,
-    place: Place,
+    point: InsertionPoint,
 }
 
 impl Target<'_> {
@@ -115,21 +116,29 @@ impl Target<'_> {
         ListRef(id)
     }
 
+    pub fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
+        std::mem::replace(&mut self.point, point)
+    }
+
     pub fn start_script(&mut self, hat: block::Hat) {
         let id = self.builder.uid_generator.new_uid();
         self.inner.blocks.insert(id, hat.into());
-        self.parent = Some(id);
-        self.place = Place::Next;
+        self.point = InsertionPoint {
+            parent: Some(id),
+            place: Place::Next,
+        };
     }
 
     pub fn put(&mut self, block: block::Stacking) {
         let mut block = block::Block::from(block);
-        block.parent = self.parent;
+        block.parent = self.point.parent;
         let id = self.builder.uid_generator.new_uid();
         self.inner.blocks.insert(id, block);
         self.set_next(id);
-        self.parent = Some(id);
-        self.place = Place::Next;
+        self.point = InsertionPoint {
+            parent: Some(id),
+            place: Place::Next,
+        };
     }
 
     pub fn forever(&mut self) {
@@ -137,17 +146,30 @@ impl Target<'_> {
             opcode: "control_forever",
             inputs: None,
         });
-        self.place = Place::Substack1;
+        self.point.place = Place::Substack1;
+    }
+
+    pub fn repeat(&mut self, times: Operand) -> InsertionPoint {
+        self.put(block::Stacking {
+            opcode: "control_repeat",
+            inputs: Some([("TIMES", times.0)].into()),
+        });
+        self.insert_at(InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack1,
+        })
     }
 
     fn set_next(&mut self, next: Uid) {
-        let Some(parent) = self.parent else { return };
+        let Some(parent) = self.point.parent else {
+            return;
+        };
         let parent = self
             .inner
             .blocks
             .get_mut(&parent)
             .expect("parent block does not exist");
-        match self.place {
+        match self.point.place {
             Place::Next => parent.next = Some(next),
             Place::Substack1 => {
                 parent
@@ -157,6 +179,11 @@ impl Target<'_> {
             }
         }
     }
+}
+
+pub struct InsertionPoint {
+    parent: Option<Uid>,
+    place: Place,
 }
 
 enum Place {
