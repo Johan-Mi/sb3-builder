@@ -10,7 +10,7 @@ mod uid;
 pub use costume::Costume;
 pub use operand::Operand;
 
-use block::Input;
+use block::{Block, Input};
 use serde::Serialize;
 use std::collections::HashMap;
 use uid::Uid;
@@ -133,7 +133,7 @@ impl Target<'_> {
         let mut block = block::Block::from(block);
         block.parent = self.point.parent;
         let id = self.builder.uid_generator.new_uid();
-        self.inner.blocks.insert(id, block);
+        self.insert(block, id);
         self.set_next(id);
         self.point = InsertionPoint {
             parent: Some(id),
@@ -158,6 +158,21 @@ impl Target<'_> {
             parent: self.point.parent,
             place: Place::Substack1,
         })
+    }
+
+    fn insert(&mut self, block: Block, id: Uid) {
+        if let Some(inputs) = &block.inputs {
+            for input in inputs.values() {
+                if let Input::Substack(operand_block_id) = input {
+                    self.inner
+                        .blocks
+                        .get_mut(operand_block_id)
+                        .expect("operand block does not exist")
+                        .parent = Some(id);
+                }
+            }
+        }
+        self.inner.blocks.insert(id, block);
     }
 
     fn set_next(&mut self, next: Uid) {
