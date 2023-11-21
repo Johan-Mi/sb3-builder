@@ -171,6 +171,22 @@ impl Target<'_> {
         })
     }
 
+    pub fn if_else(&mut self, condition: Operand) -> [InsertionPoint; 2] {
+        self.put(block::Stacking {
+            opcode: "control_if_else",
+            inputs: Some([("CONDITION", condition.0)].into()),
+        });
+        let after = self.insert_at(InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack1,
+        });
+        let else_ = InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack2,
+        };
+        [after, else_]
+    }
+
     fn insert(&mut self, block: Block, id: Uid) {
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
@@ -203,6 +219,12 @@ impl Target<'_> {
                     .get_or_insert_with(HashMap::default)
                     .insert("SUBSTACK", Input::Substack(next));
             }
+            Place::Substack2 => {
+                parent
+                    .inputs
+                    .get_or_insert_with(HashMap::default)
+                    .insert("SUBSTACK2", Input::Substack(next));
+            }
         }
     }
 }
@@ -215,6 +237,7 @@ pub struct InsertionPoint {
 enum Place {
     Next,
     Substack1,
+    Substack2,
 }
 
 pub struct Variable {
