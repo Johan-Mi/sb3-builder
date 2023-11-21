@@ -3,7 +3,7 @@ use serde::{ser::SerializeStruct, Serialize};
 use std::collections::HashMap;
 
 pub(crate) struct Block {
-    opcode: &'static str,
+    pub(crate) opcode: &'static str,
     pub(crate) parent: Option<Uid>,
     pub(crate) next: Option<Uid>,
     pub(crate) inputs: Option<HashMap<&'static str, Input>>,

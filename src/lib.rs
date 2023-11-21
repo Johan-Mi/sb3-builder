@@ -160,6 +160,17 @@ impl Target<'_> {
         })
     }
 
+    pub fn if_(&mut self, condition: Operand) -> InsertionPoint {
+        self.put(block::Stacking {
+            opcode: "control_if",
+            inputs: Some([("CONDITION", condition.0)].into()),
+        });
+        self.insert_at(InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack1,
+        })
+    }
+
     fn insert(&mut self, block: Block, id: Uid) {
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
