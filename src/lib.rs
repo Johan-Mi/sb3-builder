@@ -187,6 +187,21 @@ impl Target<'_> {
         [after, else_]
     }
 
+    pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.op(Block {
+            opcode: "operator_equals",
+            parent: None,
+            next: None,
+            inputs: Some([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)].into()),
+        })
+    }
+
+    fn op(&mut self, block: Block) -> Operand {
+        let id = self.builder.uid_generator.new_uid();
+        self.insert(block, id);
+        Operand(Input::Substack(id))
+    }
+
     fn insert(&mut self, block: Block, id: Uid) {
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
