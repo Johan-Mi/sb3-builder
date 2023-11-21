@@ -132,8 +132,7 @@ impl Target<'_> {
     pub fn put(&mut self, block: block::Stacking) {
         let mut block = block::Block::from(block);
         block.parent = self.point.parent;
-        let id = self.builder.uid_generator.new_uid();
-        self.insert(block, id);
+        let id = self.insert(block);
         self.set_next(id);
         self.point = InsertionPoint {
             parent: Some(id),
@@ -197,12 +196,11 @@ impl Target<'_> {
     }
 
     fn op(&mut self, block: Block) -> Operand {
-        let id = self.builder.uid_generator.new_uid();
-        self.insert(block, id);
-        Operand(Input::Substack(id))
+        Operand(Input::Substack(self.insert(block)))
     }
 
-    fn insert(&mut self, block: Block, id: Uid) {
+    fn insert(&mut self, block: Block) -> Uid {
+        let id = self.builder.uid_generator.new_uid();
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
                 if let Input::Substack(operand_block_id) = input {
@@ -215,6 +213,7 @@ impl Target<'_> {
             }
         }
         self.inner.blocks.insert(id, block);
+        id
     }
 
     fn set_next(&mut self, next: Uid) {
