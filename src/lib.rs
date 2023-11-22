@@ -186,6 +186,28 @@ impl Target<'_> {
         [after, else_]
     }
 
+    pub fn while_(&mut self, condition: Operand) -> InsertionPoint {
+        self.put(block::Stacking {
+            opcode: "control_while",
+            inputs: Some([("CONDITION", condition.0)].into()),
+        });
+        self.insert_at(InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack1,
+        })
+    }
+
+    pub fn repeat_until(&mut self, condition: Operand) -> InsertionPoint {
+        self.put(block::Stacking {
+            opcode: "control_repeat_until",
+            inputs: Some([("CONDITION", condition.0)].into()),
+        });
+        self.insert_at(InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack1,
+        })
+    }
+
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
         self.op(Block {
             opcode: "operator_equals",
