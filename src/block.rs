@@ -1,5 +1,8 @@
 use crate::{uid::Uid, Operand};
-use serde::{ser::SerializeStruct, Serialize};
+use serde::{
+    ser::{SerializeMap, SerializeStruct},
+    Serialize,
+};
 use std::collections::HashMap;
 
 pub(crate) struct Block {
@@ -7,6 +10,7 @@ pub(crate) struct Block {
     pub(crate) parent: Option<Uid>,
     pub(crate) next: Option<Uid>,
     pub(crate) inputs: Option<HashMap<&'static str, Input>>,
+    pub(crate) fields: Option<Fields>,
 }
 
 impl Serialize for Block {
@@ -21,6 +25,9 @@ impl Serialize for Block {
         s.serialize_field("topLevel", &self.parent.is_none())?;
         if let Some(inputs) = &self.inputs {
             s.serialize_field("inputs", inputs)?;
+        }
+        if let Some(fields) = &self.fields {
+            s.serialize_field("fields", fields)?;
         }
         s.end()
     }
@@ -37,6 +44,7 @@ impl From<Hat> for Block {
             parent: None,
             next: None,
             inputs: None,
+            fields: None,
         }
     }
 }
@@ -53,6 +61,7 @@ impl From<Stacking> for Block {
             parent: None,
             next: None,
             inputs: stacking.inputs,
+            fields: None,
         }
     }
 }
@@ -236,6 +245,25 @@ impl Serialize for Input {
             Self::Number(n) => (1, (4, n)).serialize(serializer),
             Self::Variable { ref name, id } => {
                 (2, (12, name, id)).serialize(serializer)
+            }
+        }
+    }
+}
+
+pub(crate) enum Fields {
+    Variable { name: String, id: Uid },
+}
+
+impl Serialize for Fields {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::Variable { name, id } => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("VARIABLE", &(&**name, *id))?;
+                m.end()
             }
         }
     }

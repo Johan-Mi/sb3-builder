@@ -10,7 +10,7 @@ mod uid;
 pub use costume::Costume;
 pub use operand::Operand;
 
-use block::{Block, Input};
+use block::{Block, Fields, Input};
 use serde::Serialize;
 use std::collections::HashMap;
 use uid::Uid;
@@ -130,7 +130,10 @@ impl Target<'_> {
     }
 
     pub fn put(&mut self, block: block::Stacking) {
-        let mut block = block::Block::from(block);
+        self.put_block(block.into());
+    }
+
+    fn put_block(&mut self, mut block: Block) {
         block.parent = self.point.parent;
         let id = self.insert(block);
         self.set_next(id);
@@ -208,12 +211,25 @@ impl Target<'_> {
         })
     }
 
+    pub fn set_variable(&mut self, variable: VariableRef, to: Operand) {
+        let id = variable.0;
+        let name = self.inner.variables[&id].name.clone();
+        self.put_block(Block {
+            opcode: "data_setvariableto",
+            parent: None,
+            next: None,
+            inputs: Some([("VALUE", to.0)].into()),
+            fields: Some(Fields::Variable { name, id }),
+        })
+    }
+
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
         self.op(Block {
             opcode: "operator_equals",
             parent: None,
             next: None,
             inputs: Some([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)].into()),
+            fields: None,
         })
     }
 
