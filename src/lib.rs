@@ -223,6 +223,18 @@ impl Target<'_> {
         });
     }
 
+    pub fn change_variable(&mut self, variable: VariableRef, by: Operand) {
+        let id = variable.0;
+        let name = self.inner.variables[&id].name.clone();
+        self.put_block(Block {
+            opcode: "data_changevariableby",
+            parent: None,
+            next: None,
+            inputs: Some([("VALUE", by.0)].into()),
+            fields: Some(Fields::Variable { name, id }),
+        });
+    }
+
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
         self.op(Block {
             opcode: "operator_equals",
