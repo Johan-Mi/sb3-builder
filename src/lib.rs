@@ -220,7 +220,7 @@ impl Target<'_> {
             next: None,
             inputs: Some([("VALUE", to.0)].into()),
             fields: Some(Fields::Variable { name, id }),
-        })
+        });
     }
 
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
