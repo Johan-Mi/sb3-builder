@@ -162,6 +162,26 @@ impl Target<'_> {
         })
     }
 
+    pub fn for_(
+        &mut self,
+        variable: VariableRef,
+        times: Operand,
+    ) -> InsertionPoint {
+        let id = variable.0;
+        let name = self.inner.variables[&id].name.clone();
+        self.put_block(Block {
+            opcode: "control_for_each",
+            parent: None,
+            next: None,
+            inputs: Some([("VALUE", times.0)].into()),
+            fields: Some(Fields::Variable { name, id }),
+        });
+        self.insert_at(InsertionPoint {
+            parent: self.point.parent,
+            place: Place::Substack1,
+        })
+    }
+
     pub fn if_(&mut self, condition: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_if",
