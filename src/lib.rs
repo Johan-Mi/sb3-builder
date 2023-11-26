@@ -262,6 +262,10 @@ impl Target<'_> {
         self.op(Block::symbol("motion_yposition"))
     }
 
+    pub fn timer(&mut self) -> Operand {
+        self.op(Block::symbol("sensing_timer"))
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
