@@ -266,6 +266,10 @@ impl Target<'_> {
         self.op(Block::symbol("sensing_timer"))
     }
 
+    pub fn answer(&mut self) -> Operand {
+        self.op(Block::symbol("sensing_answer"))
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
