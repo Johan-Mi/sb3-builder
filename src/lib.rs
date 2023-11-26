@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::nursery, clippy::pedantic, clippy::unwrap_used)]
+#![warn(clippy::nursery, clippy::pedantic, clippy::cargo, clippy::unwrap_used)]
 
 pub mod block;
 mod costume;
