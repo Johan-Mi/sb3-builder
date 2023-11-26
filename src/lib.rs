@@ -100,14 +100,9 @@ impl Target<'_> {
 
     pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
         let id = self.builder.uid_generator.new_uid();
+        let name = variable.name.clone();
         self.inner.variables.insert(id, variable);
-        VariableRef(id)
-    }
-
-    pub fn get_variable(&mut self, variable: VariableRef) -> Operand {
-        let id = variable.0;
-        let name = self.inner.variables[&id].name.clone();
-        Operand(Input::Variable { name, id })
+        VariableRef { name, id }
     }
 
     pub fn add_list(&mut self, list: List) -> ListRef {
@@ -167,14 +162,12 @@ impl Target<'_> {
         variable: VariableRef,
         times: Operand,
     ) -> InsertionPoint {
-        let id = variable.0;
-        let name = self.inner.variables[&id].name.clone();
         self.put_block(Block {
             opcode: "control_for_each",
             parent: None,
             next: None,
             inputs: Some([("VALUE", times.0)].into()),
-            fields: Some(Fields::Variable { name, id }),
+            fields: Some(Fields::Variable(variable)),
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
@@ -232,26 +225,22 @@ impl Target<'_> {
     }
 
     pub fn set_variable(&mut self, variable: VariableRef, to: Operand) {
-        let id = variable.0;
-        let name = self.inner.variables[&id].name.clone();
         self.put_block(Block {
             opcode: "data_setvariableto",
             parent: None,
             next: None,
             inputs: Some([("VALUE", to.0)].into()),
-            fields: Some(Fields::Variable { name, id }),
+            fields: Some(Fields::Variable(variable)),
         });
     }
 
     pub fn change_variable(&mut self, variable: VariableRef, by: Operand) {
-        let id = variable.0;
-        let name = self.inner.variables[&id].name.clone();
         self.put_block(Block {
             opcode: "data_changevariableby",
             parent: None,
             next: None,
             inputs: Some([("VALUE", by.0)].into()),
-            fields: Some(Fields::Variable { name, id }),
+            fields: Some(Fields::Variable(variable)),
         });
     }
 
@@ -337,8 +326,11 @@ impl Serialize for Variable {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct VariableRef(Uid);
+#[derive(Clone)]
+pub struct VariableRef {
+    name: String,
+    id: Uid,
+}
 
 pub struct List {
     pub name: String,

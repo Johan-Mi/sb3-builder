@@ -1,4 +1,4 @@
-use crate::{uid::Uid, Operand};
+use crate::{uid::Uid, Operand, VariableRef};
 use serde::{
     ser::{SerializeMap, SerializeStruct},
     Serialize,
@@ -232,7 +232,7 @@ pub fn wait(seconds: Operand) -> Stacking {
 pub(crate) enum Input {
     Substack(Uid),
     Number(f64),
-    Variable { name: String, id: Uid },
+    Variable(VariableRef),
 }
 
 impl Serialize for Input {
@@ -243,7 +243,7 @@ impl Serialize for Input {
         match *self {
             Self::Substack(uid) => (2, uid).serialize(serializer),
             Self::Number(n) => (1, (4, n)).serialize(serializer),
-            Self::Variable { ref name, id } => {
+            Self::Variable(VariableRef { ref name, id }) => {
                 (2, (12, name, id)).serialize(serializer)
             }
         }
@@ -251,7 +251,7 @@ impl Serialize for Input {
 }
 
 pub(crate) enum Fields {
-    Variable { name: String, id: Uid },
+    Variable(VariableRef),
 }
 
 impl Serialize for Fields {
@@ -260,7 +260,7 @@ impl Serialize for Fields {
         S: serde::Serializer,
     {
         match self {
-            Self::Variable { name, id } => {
+            Self::Variable(VariableRef { id, name }) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("VARIABLE", &(&**name, *id))?;
                 m.end()
