@@ -221,22 +221,6 @@ impl Target<'_> {
         })
     }
 
-    pub fn set_variable(&mut self, variable: VariableRef, to: Operand) {
-        self.put(block::Stacking {
-            opcode: "data_setvariableto",
-            inputs: Some([("VALUE", to.0)].into()),
-            fields: Some(Fields::Variable(variable)),
-        });
-    }
-
-    pub fn change_variable(&mut self, variable: VariableRef, by: Operand) {
-        self.put(block::Stacking {
-            opcode: "data_changevariableby",
-            inputs: Some([("VALUE", by.0)].into()),
-            fields: Some(Fields::Variable(variable)),
-        });
-    }
-
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
         self.op(Block {
             opcode: "operator_equals",

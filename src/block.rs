@@ -106,6 +106,15 @@ pub fn ask(question: Operand) -> Stacking {
 }
 
 #[must_use]
+pub fn change_variable(variable: VariableRef, by: Operand) -> Stacking {
+    Stacking {
+        opcode: "data_changevariableby",
+        inputs: Some([("VALUE", by.0)].into()),
+        fields: Some(Fields::Variable(variable)),
+    }
+}
+
+#[must_use]
 pub fn change_x(dx: Operand) -> Stacking {
     Stacking {
         opcode: "motion_changexby",
@@ -217,6 +226,15 @@ pub fn set_size(size: Operand) -> Stacking {
         opcode: "looks_setsizeto",
         inputs: Some([("SIZE", size.0)].into()),
         fields: None,
+    }
+}
+
+#[must_use]
+pub fn set_variable(variable: VariableRef, to: Operand) -> Stacking {
+    Stacking {
+        opcode: "data_setvariableto",
+        inputs: Some([("VALUE", to.0)].into()),
+        fields: Some(Fields::Variable(variable)),
     }
 }
 
