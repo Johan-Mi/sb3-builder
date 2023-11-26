@@ -125,10 +125,7 @@ impl Target<'_> {
     }
 
     pub fn put(&mut self, block: block::Stacking) {
-        self.put_block(block.into());
-    }
-
-    fn put_block(&mut self, mut block: Block) {
+        let mut block = Block::from(block);
         block.parent = self.point.parent;
         let id = self.insert(block);
         self.set_next(id);
@@ -139,10 +136,7 @@ impl Target<'_> {
     }
 
     pub fn forever(&mut self) {
-        self.put(block::Stacking {
-            opcode: "control_forever",
-            inputs: None,
-        });
+        self.put(block::Stacking::new("control_forever"));
         self.point.place = Place::Substack1;
     }
 
@@ -150,6 +144,7 @@ impl Target<'_> {
         self.put(block::Stacking {
             opcode: "control_repeat",
             inputs: Some([("TIMES", times.0)].into()),
+            fields: None,
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
@@ -162,10 +157,8 @@ impl Target<'_> {
         variable: VariableRef,
         times: Operand,
     ) -> InsertionPoint {
-        self.put_block(Block {
+        self.put(block::Stacking {
             opcode: "control_for_each",
-            parent: None,
-            next: None,
             inputs: Some([("VALUE", times.0)].into()),
             fields: Some(Fields::Variable(variable)),
         });
@@ -179,6 +172,7 @@ impl Target<'_> {
         self.put(block::Stacking {
             opcode: "control_if",
             inputs: Some([("CONDITION", condition.0)].into()),
+            fields: None,
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
@@ -190,6 +184,7 @@ impl Target<'_> {
         self.put(block::Stacking {
             opcode: "control_if_else",
             inputs: Some([("CONDITION", condition.0)].into()),
+            fields: None,
         });
         let after = self.insert_at(InsertionPoint {
             parent: self.point.parent,
@@ -206,6 +201,7 @@ impl Target<'_> {
         self.put(block::Stacking {
             opcode: "control_while",
             inputs: Some([("CONDITION", condition.0)].into()),
+            fields: None,
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
@@ -217,6 +213,7 @@ impl Target<'_> {
         self.put(block::Stacking {
             opcode: "control_repeat_until",
             inputs: Some([("CONDITION", condition.0)].into()),
+            fields: None,
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
@@ -225,20 +222,16 @@ impl Target<'_> {
     }
 
     pub fn set_variable(&mut self, variable: VariableRef, to: Operand) {
-        self.put_block(Block {
+        self.put(block::Stacking {
             opcode: "data_setvariableto",
-            parent: None,
-            next: None,
             inputs: Some([("VALUE", to.0)].into()),
             fields: Some(Fields::Variable(variable)),
         });
     }
 
     pub fn change_variable(&mut self, variable: VariableRef, by: Operand) {
-        self.put_block(Block {
+        self.put(block::Stacking {
             opcode: "data_changevariableby",
-            parent: None,
-            next: None,
             inputs: Some([("VALUE", by.0)].into()),
             fields: Some(Fields::Variable(variable)),
         });
