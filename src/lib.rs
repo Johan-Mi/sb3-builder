@@ -254,6 +254,14 @@ impl Target<'_> {
         })
     }
 
+    pub fn x_position(&mut self) -> Operand {
+        self.op(Block::symbol("motion_xposition"))
+    }
+
+    pub fn y_position(&mut self) -> Operand {
+        self.op(Block::symbol("motion_yposition"))
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }

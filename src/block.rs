@@ -33,6 +33,18 @@ impl Serialize for Block {
     }
 }
 
+impl Block {
+    pub(crate) const fn symbol(opcode: &'static str) -> Self {
+        Self {
+            opcode,
+            parent: None,
+            next: None,
+            inputs: None,
+            fields: None,
+        }
+    }
+}
+
 pub struct Hat {
     opcode: &'static str,
 }
