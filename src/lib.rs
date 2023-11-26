@@ -107,8 +107,9 @@ impl Target<'_> {
 
     pub fn add_list(&mut self, list: List) -> ListRef {
         let id = self.builder.uid_generator.new_uid();
+        let name = list.name.clone();
         self.inner.lists.insert(id, list);
-        ListRef(id)
+        ListRef { name, id }
     }
 
     pub fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
@@ -338,4 +339,8 @@ impl Serialize for List {
     }
 }
 
-pub struct ListRef(Uid);
+#[derive(Clone)]
+pub struct ListRef {
+    name: String,
+    id: Uid,
+}
