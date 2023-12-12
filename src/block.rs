@@ -1,4 +1,4 @@
-use crate::{uid::Uid, Operand, VariableRef};
+use crate::{uid::Uid, ListRef, Operand, VariableRef};
 use serde::{
     ser::{SerializeMap, SerializeStruct},
     Serialize,
@@ -279,6 +279,7 @@ pub(crate) enum Input {
     Substack(Uid),
     Number(f64),
     Variable(VariableRef),
+    List(ListRef),
 }
 
 impl Serialize for Input {
@@ -291,6 +292,9 @@ impl Serialize for Input {
             Self::Number(n) => (1, (4, n)).serialize(serializer),
             Self::Variable(VariableRef { ref name, id }) => {
                 (2, (12, name, id)).serialize(serializer)
+            }
+            Self::List(ListRef { ref name, id }) => {
+                (2, (13, name, id)).serialize(serializer)
             }
         }
     }
