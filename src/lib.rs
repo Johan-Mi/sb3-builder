@@ -222,14 +222,60 @@ impl Target<'_> {
         })
     }
 
-    pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+    fn binary_operation(
+        &mut self,
+        opcode: &'static str,
+        operands: [(&'static str, Input); 2],
+    ) -> Operand {
         self.op(Block {
-            opcode: "operator_equals",
+            opcode,
             parent: None,
             next: None,
-            inputs: Some([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)].into()),
+            inputs: Some(operands.into()),
             fields: None,
         })
+    }
+
+    pub fn add(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_add",
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
+    }
+
+    pub fn sub(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_subtract",
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
+    }
+
+    pub fn mul(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_multiply",
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
+    }
+
+    pub fn div(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_divide",
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
+    }
+
+    pub fn modulo(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_mod",
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
+    }
+
+    pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_equals",
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
     }
 
     pub fn x_position(&mut self) -> Operand {
