@@ -8,6 +8,12 @@ impl From<f64> for Operand {
     }
 }
 
+impl From<String> for Operand {
+    fn from(value: String) -> Self {
+        Self(Input::String(value))
+    }
+}
+
 impl From<VariableRef> for Operand {
     fn from(value: VariableRef) -> Self {
         Self(Input::Variable(value))

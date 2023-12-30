@@ -278,6 +278,7 @@ pub fn wait(seconds: Operand) -> Stacking {
 pub(crate) enum Input {
     Substack(Uid),
     Number(f64),
+    String(String),
     Variable(VariableRef),
     List(ListRef),
 }
@@ -290,6 +291,7 @@ impl Serialize for Input {
         match *self {
             Self::Substack(uid) => (2, uid).serialize(serializer),
             Self::Number(n) => (1, (4, n)).serialize(serializer),
+            Self::String(ref s) => (1, (10, s)).serialize(serializer),
             Self::Variable(VariableRef { ref name, id }) => {
                 (2, (12, name, id)).serialize(serializer)
             }
