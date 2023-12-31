@@ -116,6 +116,22 @@ impl Target<'_> {
         std::mem::replace(&mut self.point, point)
     }
 
+    pub fn add_custom_block(
+        &mut self,
+        name: String,
+        parameters: Vec<Parameter>,
+    ) -> (CustomBlockRef, InsertionPoint) {
+        todo!()
+    }
+
+    pub fn use_custom_block(
+        &mut self,
+        block: CustomBlockRef,
+        arguments: &[Operand],
+    ) {
+        todo!()
+    }
+
     pub fn start_script(&mut self, hat: block::Hat) {
         let id = self.builder.uid_generator.new_uid();
         self.inner.blocks.insert(id, hat.into());
@@ -390,3 +406,16 @@ pub struct ListRef {
     name: String,
     id: Uid,
 }
+
+pub struct Parameter {
+    pub name: String,
+    pub kind: ParameterKind,
+}
+
+pub enum ParameterKind {
+    StringOrNumber,
+    Boolean,
+}
+
+#[derive(Clone, Copy)]
+pub struct CustomBlockRef {}
