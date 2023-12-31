@@ -97,6 +97,15 @@ pub const fn when_flag_clicked() -> Hat {
 }
 
 #[must_use]
+pub fn append(list: ListRef, item: Operand) -> Stacking {
+    Stacking {
+        opcode: "data_addtolist",
+        inputs: Some([("ITEM", item.0)].into()),
+        fields: Some(Fields::List(list)),
+    }
+}
+
+#[must_use]
 pub fn ask(question: Operand) -> Stacking {
     Stacking {
         opcode: "sensing_askandwait",
@@ -168,6 +177,15 @@ pub const fn pen_down() -> Stacking {
 #[must_use]
 pub const fn pen_up() -> Stacking {
     Stacking::new("pen_penUp")
+}
+
+#[must_use]
+pub fn replace(list: ListRef, index: Operand, item: Operand) -> Stacking {
+    Stacking {
+        opcode: "data_replaceitemoflist",
+        inputs: Some([("INDEX", index.0), ("ITEM", item.0)].into()),
+        fields: Some(Fields::List(list)),
+    }
 }
 
 #[must_use]
@@ -304,6 +322,7 @@ impl Serialize for Input {
 
 pub(crate) enum Fields {
     Variable(VariableRef),
+    List(ListRef),
 }
 
 impl Serialize for Fields {
@@ -315,6 +334,11 @@ impl Serialize for Fields {
             Self::Variable(VariableRef { id, name }) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("VARIABLE", &(&**name, *id))?;
+                m.end()
+            }
+            Self::List(ListRef { id, name }) => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("LIST", &(&**name, *id))?;
                 m.end()
             }
         }
