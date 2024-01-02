@@ -1,4 +1,4 @@
-use crate::{uid::Uid, ListRef, Operand, VariableRef};
+use crate::{uid::Uid, ListRef, Mutation, Operand, VariableRef};
 use serde::{
     ser::{SerializeMap, SerializeStruct},
     Serialize,
@@ -11,6 +11,7 @@ pub(crate) struct Block {
     pub(crate) next: Option<Uid>,
     pub(crate) inputs: Option<HashMap<&'static str, Input>>,
     pub(crate) fields: Option<Fields>,
+    pub(crate) mutation: Option<Mutation>,
 }
 
 impl Serialize for Block {
@@ -18,7 +19,7 @@ impl Serialize for Block {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Block", 5)?;
+        let mut s = serializer.serialize_struct("Block", 7)?;
         s.serialize_field("opcode", self.opcode)?;
         s.serialize_field("parent", &self.parent)?;
         s.serialize_field("next", &self.next)?;
@@ -28,6 +29,9 @@ impl Serialize for Block {
         }
         if let Some(fields) = &self.fields {
             s.serialize_field("fields", fields)?;
+        }
+        if let Some(mutation) = &self.mutation {
+            s.serialize_field("mutation", mutation)?;
         }
         s.end()
     }
@@ -41,6 +45,7 @@ impl Block {
             next: None,
             inputs: None,
             fields: None,
+            mutation: None,
         }
     }
 }
@@ -57,6 +62,7 @@ impl From<Hat> for Block {
             next: None,
             inputs: None,
             fields: None,
+            mutation: None,
         }
     }
 }
@@ -75,6 +81,7 @@ impl From<Stacking> for Block {
             next: None,
             inputs: stacking.inputs,
             fields: stacking.fields,
+            mutation: None,
         }
     }
 }
@@ -299,6 +306,7 @@ pub(crate) enum Input {
     String(String),
     Variable(VariableRef),
     List(ListRef),
+    Prototype(Uid),
 }
 
 impl Serialize for Input {
@@ -316,6 +324,7 @@ impl Serialize for Input {
             Self::List(ListRef { ref name, id }) => {
                 (2, (13, name, id)).serialize(serializer)
             }
+            Self::Prototype(uid) => (1, uid).serialize(serializer),
         }
     }
 }
@@ -323,6 +332,7 @@ impl Serialize for Input {
 pub(crate) enum Fields {
     Variable(VariableRef),
     List(ListRef),
+    Value(String),
 }
 
 impl Serialize for Fields {
@@ -339,6 +349,11 @@ impl Serialize for Fields {
             Self::List(ListRef { id, name }) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("LIST", &(&**name, *id))?;
+                m.end()
+            }
+            Self::Value(name) => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("VALUE", &(&**name, ()))?;
                 m.end()
             }
         }

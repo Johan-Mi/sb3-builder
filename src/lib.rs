@@ -11,7 +11,7 @@ pub use costume::Costume;
 pub use operand::Operand;
 
 use block::{Block, Fields, Input};
-use serde::Serialize;
+use serde::{ser::SerializeStruct, Serialize};
 use std::collections::HashMap;
 use uid::Uid;
 
@@ -120,16 +120,140 @@ impl Target<'_> {
         &mut self,
         name: String,
         parameters: Vec<Parameter>,
-    ) -> (CustomBlockRef, InsertionPoint) {
-        todo!()
+    ) -> (CustomBlock, InsertionPoint) {
+        let param_ids = std::iter::repeat_with(|| {
+            &*self.builder.uid_generator.new_uid().to_string().leak()
+        })
+        .take(parameters.len())
+        .collect::<Vec<_>>();
+
+        let argumentnames = Some(
+            serde_json::to_string(
+                &parameters
+                    .iter()
+                    .map(|param| &param.name)
+                    .collect::<Vec<_>>(),
+            )
+            .expect("failed to serialize argument names"),
+        );
+
+        let mut argumentdefaults = "[".to_owned();
+        for (i, param) in parameters.iter().enumerate() {
+            if i != 0 {
+                argumentdefaults.push(',');
+            }
+            argumentdefaults.push_str(match param.kind {
+                ParameterKind::StringOrNumber => "\"\"",
+                ParameterKind::Boolean => "false",
+            });
+        }
+        argumentdefaults.push(']');
+
+        let mut proccode = name;
+        for param in &parameters {
+            proccode.push_str(match param.kind {
+                ParameterKind::StringOrNumber => " %d",
+                ParameterKind::Boolean => " %b",
+            });
+        }
+
+        let argumentids = serde_json::to_string(&param_ids)
+            .expect("failed to serialize argument IDs");
+
+        let mutation = Mutation {
+            proccode,
+            argumentids,
+            argumentnames: None,
+            argumentdefaults: None,
+        };
+
+        let inputs = param_ids
+            .iter()
+            .copied()
+            .zip(
+                parameters
+                    .into_iter()
+                    .map(|param| self.custom_block_parameter(param).0),
+            )
+            .collect();
+
+        let prototype = self.insert(Block {
+            opcode: "procedures_prototype",
+            parent: None,
+            next: None,
+            inputs: Some(inputs),
+            fields: None,
+            mutation: Some(Mutation {
+                argumentnames,
+                argumentdefaults: Some(argumentdefaults),
+                ..mutation.clone()
+            }),
+        });
+
+        let definition = self.insert(
+            block::Stacking {
+                opcode: "procedures_definition",
+                inputs: Some(
+                    [("custom_block", Input::Prototype(prototype))].into(),
+                ),
+                fields: None,
+            }
+            .into(),
+        );
+
+        (
+            CustomBlock {
+                mutation,
+                param_ids,
+            },
+            InsertionPoint {
+                parent: Some(definition),
+                place: Place::Next,
+            },
+        )
     }
 
     pub fn use_custom_block(
         &mut self,
-        block: CustomBlockRef,
-        arguments: &[Operand],
+        block: &CustomBlock,
+        arguments: Vec<Operand>,
     ) {
-        todo!()
+        let inputs = block
+            .param_ids
+            .iter()
+            .copied()
+            .zip(arguments.into_iter().map(|arg| arg.0))
+            .collect();
+
+        let block = Block {
+            opcode: "procedures_call",
+            parent: self.point.parent,
+            next: None,
+            inputs: Some(inputs),
+            fields: None,
+            mutation: Some(block.mutation.clone()),
+        };
+        let id = self.insert(block);
+        self.set_next(id);
+        self.point = InsertionPoint {
+            parent: Some(id),
+            place: Place::Next,
+        };
+    }
+
+    pub fn custom_block_parameter(&mut self, param: Parameter) -> Operand {
+        let opcode = match param.kind {
+            ParameterKind::StringOrNumber => "argument_reporter_string_number",
+            ParameterKind::Boolean => "argument_reporter_boolean",
+        };
+        self.op(Block {
+            opcode,
+            parent: None,
+            next: None,
+            inputs: None,
+            fields: Some(Fields::Value(param.name)),
+            mutation: None,
+        })
     }
 
     pub fn start_script(&mut self, hat: block::Hat) {
@@ -249,6 +373,7 @@ impl Target<'_> {
             next: None,
             inputs: Some(operands.into()),
             fields: None,
+            mutation: None,
         })
     }
 
@@ -421,15 +546,48 @@ pub struct ListRef {
     id: Uid,
 }
 
+#[derive(Clone)]
 pub struct Parameter {
     pub name: String,
     pub kind: ParameterKind,
 }
 
+#[derive(Clone, Copy)]
 pub enum ParameterKind {
     StringOrNumber,
     Boolean,
 }
 
-#[derive(Clone, Copy)]
-pub struct CustomBlockRef {}
+pub struct CustomBlock {
+    mutation: Mutation,
+    param_ids: Vec<&'static str>,
+}
+
+#[derive(Clone)]
+struct Mutation {
+    proccode: String,
+    argumentids: String,
+    argumentnames: Option<String>,
+    argumentdefaults: Option<String>,
+}
+
+impl Serialize for Mutation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("Mutation", 7)?;
+        s.serialize_field("tagName", "mutation")?;
+        s.serialize_field("children", &[(); 0])?;
+        s.serialize_field("proccode", &self.proccode)?;
+        s.serialize_field("argumentids", &self.argumentids)?;
+        s.serialize_field("warp", "true")?;
+        if let Some(argumentsnames) = &self.argumentnames {
+            s.serialize_field("argumentnames", argumentsnames)?;
+        }
+        if let Some(argumentsdefaults) = &self.argumentdefaults {
+            s.serialize_field("argumentdefaults", argumentsdefaults)?;
+        }
+        s.end()
+    }
+}
