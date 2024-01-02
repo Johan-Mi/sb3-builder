@@ -177,9 +177,10 @@ impl Target<'_> {
             )
             .collect();
 
+        let definition = self.builder.uid_generator.new_uid();
         let prototype = self.insert(Block {
             opcode: "procedures_prototype",
-            parent: None,
+            parent: Some(definition),
             next: None,
             inputs: Some(inputs),
             fields: None,
@@ -190,7 +191,8 @@ impl Target<'_> {
             }),
         });
 
-        let definition = self.insert(
+        self.inner.blocks.insert(
+            definition,
             block::Stacking {
                 opcode: "procedures_definition",
                 inputs: Some(
