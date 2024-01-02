@@ -152,7 +152,7 @@ impl Target<'_> {
         let mut proccode = name;
         for param in &parameters {
             proccode.push_str(match param.kind {
-                ParameterKind::StringOrNumber => " %d",
+                ParameterKind::StringOrNumber => " %s",
                 ParameterKind::Boolean => " %b",
             });
         }
