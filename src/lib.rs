@@ -435,6 +435,17 @@ impl Target<'_> {
         )
     }
 
+    pub fn not(&mut self, operand: Operand) -> Operand {
+        self.op(Block {
+            opcode: "operator_not",
+            parent: None,
+            next: None,
+            inputs: Some([("OPERAND", operand.0)].into()),
+            fields: None,
+            mutation: None,
+        })
+    }
+
     pub fn x_position(&mut self) -> Operand {
         self.op(Block::symbol("motion_xposition"))
     }
