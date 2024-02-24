@@ -462,6 +462,58 @@ impl Target<'_> {
         self.op(Block::symbol("sensing_answer"))
     }
 
+    pub fn item_of_list(&mut self, list: ListRef, index: Operand) -> Operand {
+        self.op(Block {
+            opcode: "data_itemoflist",
+            parent: None,
+            next: None,
+            inputs: Some([("INDEX", index.0)].into()),
+            fields: Some(Fields::List(list)),
+            mutation: None,
+        })
+    }
+
+    pub fn item_num_of_list(
+        &mut self,
+        list: ListRef,
+        item: Operand,
+    ) -> Operand {
+        self.op(Block {
+            opcode: "data_itemnumoflist",
+            parent: None,
+            next: None,
+            inputs: Some([("ITEM", item.0)].into()),
+            fields: Some(Fields::List(list)),
+            mutation: None,
+        })
+    }
+
+    pub fn length_of_list(&mut self, list: ListRef) -> Operand {
+        self.op(Block {
+            opcode: "data_lengthoflist",
+            parent: None,
+            next: None,
+            inputs: None,
+            fields: Some(Fields::List(list)),
+            mutation: None,
+        })
+    }
+
+    pub fn list_contains_item(
+        &mut self,
+        list: ListRef,
+        item: Operand,
+    ) -> Operand {
+        self.op(Block {
+            opcode: "data_listcontainsitem",
+            parent: None,
+            next: None,
+            inputs: Some([("ITEM", item.0)].into()),
+            fields: Some(Fields::List(list)),
+            mutation: None,
+        })
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }

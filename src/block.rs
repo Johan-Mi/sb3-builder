@@ -149,6 +149,24 @@ pub fn change_y(dy: Operand) -> Stacking {
 }
 
 #[must_use]
+pub const fn delete_all_of_list(list: ListRef) -> Stacking {
+    Stacking {
+        opcode: "data_deletealloflist",
+        inputs: None,
+        fields: Some(Fields::List(list)),
+    }
+}
+
+#[must_use]
+pub fn delete_of_list(list: ListRef, index: Operand) -> Stacking {
+    Stacking {
+        opcode: "data_deleteoflist",
+        inputs: Some([("INDEX", index.0)].into()),
+        fields: Some(Fields::List(list)),
+    }
+}
+
+#[must_use]
 pub const fn erase_all() -> Stacking {
     Stacking::new("pen_clear")
 }
@@ -165,6 +183,19 @@ pub fn go_to_xy(x: Operand, y: Operand) -> Stacking {
 #[must_use]
 pub const fn hide() -> Stacking {
     Stacking::new("looks_hide")
+}
+
+#[must_use]
+pub fn insert_at_list(
+    list: ListRef,
+    item: Operand,
+    index: Operand,
+) -> Stacking {
+    Stacking {
+        opcode: "data_insertatlist",
+        inputs: Some([("ITEM", item.0), ("INDEX", index.0)].into()),
+        fields: Some(Fields::List(list)),
+    }
 }
 
 #[must_use]
