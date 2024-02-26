@@ -514,6 +514,13 @@ impl Target<'_> {
         })
     }
 
+    pub fn join(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_join",
+            [("STRING1", lhs.0), ("STRING2", rhs.0)],
+        )
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
