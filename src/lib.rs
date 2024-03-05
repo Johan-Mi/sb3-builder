@@ -510,6 +510,17 @@ impl Target<'_> {
         })
     }
 
+    pub fn letter_of(&mut self, string: Operand, index: Operand) -> Operand {
+        self.op(Block {
+            opcode: "operator_letter_of",
+            parent: None,
+            next: None,
+            inputs: Some([("STRING", string.0), ("LETTER", index.0)].into()),
+            fields: None,
+            mutation: None,
+        })
+    }
+
     pub fn list_contains_item(
         &mut self,
         list: ListRef,
