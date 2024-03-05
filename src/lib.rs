@@ -488,6 +488,17 @@ impl Target<'_> {
         })
     }
 
+    pub fn length(&mut self, string: Operand) -> Operand {
+        self.op(Block {
+            opcode: "operator_length",
+            parent: None,
+            next: None,
+            inputs: Some([("STRING", string.0)].into()),
+            fields: None,
+            mutation: None,
+        })
+    }
+
     pub fn length_of_list(&mut self, list: ListRef) -> Operand {
         self.op(Block {
             opcode: "data_lengthoflist",
