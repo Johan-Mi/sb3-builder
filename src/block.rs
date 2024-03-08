@@ -364,6 +364,7 @@ pub(crate) enum Fields {
     Variable(VariableRef),
     List(ListRef),
     Value(String),
+    Operator(&'static str),
 }
 
 impl Serialize for Fields {
@@ -385,6 +386,11 @@ impl Serialize for Fields {
             Self::Value(name) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("VALUE", &(&**name, ()))?;
+                m.end()
+            }
+            Self::Operator(operator) => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("OPERATOR", &(*operator, ()))?;
                 m.end()
             }
         }

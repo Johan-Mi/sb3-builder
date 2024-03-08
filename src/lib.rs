@@ -543,6 +543,17 @@ impl Target<'_> {
         )
     }
 
+    pub fn mathop(&mut self, operator: &'static str, num: Operand) -> Operand {
+        self.op(Block {
+            opcode: "operator_mathop",
+            parent: None,
+            next: None,
+            inputs: Some([("NUM", num.0)].into()),
+            fields: Some(Fields::Operator(operator)),
+            mutation: None,
+        })
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
