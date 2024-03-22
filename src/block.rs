@@ -365,6 +365,15 @@ impl Serialize for Input {
     {
         match *self {
             Self::Substack(uid) => (2, uid).serialize(serializer),
+            Self::Number(n) if n == f64::INFINITY => {
+                (1, (4, "Infinity")).serialize(serializer)
+            }
+            Self::Number(n) if n == f64::NEG_INFINITY => {
+                (1, (4, "-Infinity")).serialize(serializer)
+            }
+            Self::Number(n) if n.is_nan() => {
+                (1, (4, "NaN")).serialize(serializer)
+            }
             Self::Number(n) => (1, (4, n)).serialize(serializer),
             Self::String(ref s) => (1, (10, s)).serialize(serializer),
             Self::Variable(VariableRef { ref name, id }) => {
