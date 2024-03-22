@@ -323,6 +323,15 @@ pub const fn stamp() -> Stacking {
 }
 
 #[must_use]
+pub fn stop_all() -> Stacking {
+    Stacking {
+        opcode: "control_stop",
+        inputs: None,
+        fields: Some(Fields::StopAll),
+    }
+}
+
+#[must_use]
 pub fn wait(seconds: Operand) -> Stacking {
     Stacking {
         opcode: "control_wait",
@@ -365,6 +374,7 @@ pub(crate) enum Fields {
     List(ListRef),
     Value(String),
     Operator(&'static str),
+    StopAll,
 }
 
 impl Serialize for Fields {
@@ -391,6 +401,11 @@ impl Serialize for Fields {
             Self::Operator(operator) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("OPERATOR", &(*operator, ()))?;
+                m.end()
+            }
+            Self::StopAll => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("STOP_OPTION", &("all", ()))?;
                 m.end()
             }
         }
