@@ -323,7 +323,7 @@ pub const fn stamp() -> Stacking {
 }
 
 #[must_use]
-pub fn stop_all() -> Stacking {
+pub const fn stop_all() -> Stacking {
     Stacking {
         opcode: "control_stop",
         inputs: None,
