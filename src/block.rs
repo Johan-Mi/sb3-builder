@@ -332,6 +332,15 @@ pub const fn stop_all() -> Stacking {
 }
 
 #[must_use]
+pub const fn stop_this_script() -> Stacking {
+    Stacking {
+        opcode: "control_stop",
+        inputs: None,
+        fields: Some(Fields::StopThisScript),
+    }
+}
+
+#[must_use]
 pub fn wait(seconds: Operand) -> Stacking {
     Stacking {
         opcode: "control_wait",
@@ -375,6 +384,7 @@ pub(crate) enum Fields {
     Value(String),
     Operator(&'static str),
     StopAll,
+    StopThisScript,
 }
 
 impl Serialize for Fields {
@@ -406,6 +416,11 @@ impl Serialize for Fields {
             Self::StopAll => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("STOP_OPTION", &("all", ()))?;
+                m.end()
+            }
+            Self::StopThisScript => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("STOP_OPTION", &("this script", ()))?;
                 m.end()
             }
         }
