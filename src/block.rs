@@ -172,6 +172,26 @@ pub const fn erase_all() -> Stacking {
 }
 
 #[must_use]
+pub fn go_to_back_layer() -> Stacking {
+    Stacking {
+        opcode: "looks_gotofrontback",
+        inputs: Some([("FRONT_BACK", Input::String("back".to_owned()))].into()),
+        fields: None,
+    }
+}
+
+#[must_use]
+pub fn go_to_front_layer() -> Stacking {
+    Stacking {
+        opcode: "looks_gotofrontback",
+        inputs: Some(
+            [("FRONT_BACK", Input::String("front".to_owned()))].into(),
+        ),
+        fields: None,
+    }
+}
+
+#[must_use]
 pub fn go_to_xy(x: Operand, y: Operand) -> Stacking {
     Stacking {
         opcode: "motion_gotoxy",
