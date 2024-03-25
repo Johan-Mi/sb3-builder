@@ -554,6 +554,17 @@ impl Target<'_> {
         })
     }
 
+    pub fn key_is_pressed(&mut self, key: Operand) -> Operand {
+        self.op(Block {
+            opcode: "sensing_keypressed",
+            parent: None,
+            next: None,
+            inputs: Some([("KEY_OPTION", key.0)].into()),
+            fields: None,
+            mutation: None,
+        })
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
