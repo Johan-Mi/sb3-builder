@@ -565,6 +565,17 @@ impl Target<'_> {
         })
     }
 
+    pub fn random(&mut self, from: Operand, to: Operand) -> Operand {
+        self.op(Block {
+            opcode: "operator_random",
+            parent: None,
+            next: None,
+            inputs: Some([("FROM", from.0), ("TO", to.0)].into()),
+            fields: None,
+            mutation: None,
+        })
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
