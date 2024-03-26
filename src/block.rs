@@ -52,6 +52,7 @@ impl Block {
 
 pub struct Hat {
     opcode: &'static str,
+    fields: Option<Fields>,
 }
 
 impl From<Hat> for Block {
@@ -61,7 +62,7 @@ impl From<Hat> for Block {
             parent: None,
             next: None,
             inputs: None,
-            fields: None,
+            fields: hat.fields,
             mutation: None,
         }
     }
@@ -100,6 +101,15 @@ impl Stacking {
 pub const fn when_flag_clicked() -> Hat {
     Hat {
         opcode: "event_whenflagclicked",
+        fields: None,
+    }
+}
+
+#[must_use]
+pub const fn when_key_pressed(key: String) -> Hat {
+    Hat {
+        opcode: "event_whenkeypressed",
+        fields: Some(Fields::KeyOption(key)),
     }
 }
 
@@ -412,6 +422,7 @@ pub(crate) enum Fields {
     List(ListRef),
     Value(String),
     Operator(&'static str),
+    KeyOption(String),
     StopAll,
     StopThisScript,
 }
@@ -440,6 +451,11 @@ impl Serialize for Fields {
             Self::Operator(operator) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("OPERATOR", &(*operator, ()))?;
+                m.end()
+            }
+            Self::KeyOption(key) => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("KEY_OPTION", &(key, ()))?;
                 m.end()
             }
             Self::StopAll => {
