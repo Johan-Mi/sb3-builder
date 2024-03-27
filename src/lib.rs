@@ -446,6 +446,20 @@ impl Target<'_> {
         })
     }
 
+    pub fn and(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_and",
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
+    }
+
+    pub fn or(&mut self, lhs: Operand, rhs: Operand) -> Operand {
+        self.binary_operation(
+            "operator_or",
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
+    }
+
     pub fn x_position(&mut self) -> Operand {
         self.op(Block::symbol("motion_xposition"))
     }
