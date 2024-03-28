@@ -11,7 +11,10 @@ pub use costume::Costume;
 pub use operand::Operand;
 
 use block::{Block, Fields, Input};
-use serde::{ser::SerializeStruct, Serialize};
+use serde::{
+    ser::{SerializeMap, SerializeStruct},
+    Serialize,
+};
 use std::collections::HashMap;
 use uid::Uid;
 
@@ -70,6 +73,7 @@ struct RealTarget {
     variables: HashMap<Uid, Variable>,
     lists: HashMap<Uid, List>,
     blocks: HashMap<Uid, block::Block>,
+    comments: HashMap<Uid, Comment>,
 }
 
 impl RealTarget {
@@ -83,7 +87,29 @@ impl RealTarget {
             variables: HashMap::new(),
             lists: HashMap::new(),
             blocks: HashMap::new(),
+            comments: HashMap::new(),
         }
+    }
+}
+
+struct Comment {
+    text: String,
+}
+
+impl Serialize for Comment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut m = serializer.serialize_map(Some(7))?;
+        m.serialize_entry("text", &self.text)?;
+        m.serialize_entry("blockId", &())?;
+        m.serialize_entry("minimized", &false)?;
+        m.serialize_entry("x", &())?;
+        m.serialize_entry("y", &())?;
+        m.serialize_entry("width", &0)?;
+        m.serialize_entry("height", &0)?;
+        m.end()
     }
 }
 
@@ -94,6 +120,11 @@ pub struct Target<'a> {
 }
 
 impl Target<'_> {
+    pub fn add_comment(&mut self, text: String) {
+        let id = self.builder.uid_generator.new_uid();
+        self.inner.comments.insert(id, Comment { text });
+    }
+
     pub fn add_costume(&mut self, costume: Costume) {
         self.inner.costumes.push(costume);
     }
