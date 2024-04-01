@@ -17,6 +17,12 @@ pub struct Costume {
 }
 
 impl Costume {
+    /// Creates a [`Costume`] with the image file at the given [`Path`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the path has no extension
+    /// or it fails to read the file.
     pub fn from_file(
         name: String,
         path: &Path,

@@ -3,6 +3,14 @@ use serde::Serialize;
 use std::io;
 
 impl Project {
+    /// Writes the [`Project`] as a ZIP file to the given writer,
+    /// typically a [`File`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if writing to the `writer` fails.
+    ///
+    /// [`File`]: std::fs::File
     pub fn finish(
         self,
         writer: impl io::Write + io::Seek,

@@ -147,6 +147,7 @@ impl Target<'_> {
         std::mem::replace(&mut self.point, point)
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn add_custom_block(
         &mut self,
         name: String,
