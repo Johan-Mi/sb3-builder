@@ -680,8 +680,26 @@ enum Place {
     Substack2,
 }
 
+pub enum Constant {
+    String(String),
+    Number(f64),
+}
+
+impl Serialize for Constant {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::String(s) => s.serialize(serializer),
+            Self::Number(n) => n.serialize(serializer),
+        }
+    }
+}
+
 pub struct Variable {
     pub name: String,
+    pub value: Constant,
 }
 
 impl Serialize for Variable {
@@ -689,7 +707,7 @@ impl Serialize for Variable {
     where
         S: serde::Serializer,
     {
-        (&*self.name, 0.0).serialize(serializer)
+        (&*self.name, &self.value).serialize(serializer)
     }
 }
 
@@ -701,6 +719,7 @@ pub struct VariableRef {
 
 pub struct List {
     pub name: String,
+    pub items: Vec<Constant>,
 }
 
 impl Serialize for List {
@@ -708,7 +727,7 @@ impl Serialize for List {
     where
         S: serde::Serializer,
     {
-        (&*self.name, [(); 0]).serialize(serializer)
+        (&*self.name, &self.items).serialize(serializer)
     }
 }
 
