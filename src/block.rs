@@ -122,6 +122,14 @@ pub const fn when_cloned() -> Hat {
 }
 
 #[must_use]
+pub const fn when_received(message: String) -> Hat {
+    Hat {
+        opcode: "event_whenbroadcastreceived",
+        fields: Some(Fields::BroadcastOption(message)),
+    }
+}
+
+#[must_use]
 pub fn append(list: ListRef, item: Operand) -> Stacking {
     Stacking {
         opcode: "data_addtolist",
@@ -135,6 +143,15 @@ pub fn ask(question: Operand) -> Stacking {
     Stacking {
         opcode: "sensing_askandwait",
         inputs: Some([("QUESTION", question.0)].into()),
+        fields: None,
+    }
+}
+
+#[must_use]
+pub fn broadcast_and_wait(message: Operand) -> Stacking {
+    Stacking {
+        opcode: "event_broadcastandwait",
+        inputs: Some([("BROADCAST_INPUT", message.0)].into()),
         fields: None,
     }
 }
@@ -431,6 +448,7 @@ pub(crate) enum Fields {
     Value(String),
     Operator(&'static str),
     KeyOption(String),
+    BroadcastOption(String),
     StopAll,
     StopThisScript,
     CloneSelf,
@@ -465,6 +483,11 @@ impl Serialize for Fields {
             Self::KeyOption(key) => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("KEY_OPTION", &(key, ()))?;
+                m.end()
+            }
+            Self::BroadcastOption(broadcast) => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("BROADCAST_OPTION", &(broadcast, ()))?;
                 m.end()
             }
             Self::StopAll => {
