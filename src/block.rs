@@ -114,6 +114,14 @@ pub const fn when_key_pressed(key: String) -> Hat {
 }
 
 #[must_use]
+pub const fn when_cloned() -> Hat {
+    Hat {
+        opcode: "control_start_as_clone",
+        fields: None,
+    }
+}
+
+#[must_use]
 pub fn append(list: ListRef, item: Operand) -> Stacking {
     Stacking {
         opcode: "data_addtolist",
@@ -425,6 +433,7 @@ pub(crate) enum Fields {
     KeyOption(String),
     StopAll,
     StopThisScript,
+    CloneSelf,
 }
 
 impl Serialize for Fields {
@@ -466,6 +475,11 @@ impl Serialize for Fields {
             Self::StopThisScript => {
                 let mut m = serializer.serialize_map(Some(1))?;
                 m.serialize_entry("STOP_OPTION", &("this script", ()))?;
+                m.end()
+            }
+            Self::CloneSelf => {
+                let mut m = serializer.serialize_map(Some(1))?;
+                m.serialize_entry("CLONE_OPTION", &("_myself_", ()))?;
                 m.end()
             }
         }

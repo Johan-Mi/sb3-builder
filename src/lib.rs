@@ -622,6 +622,22 @@ impl Target<'_> {
         })
     }
 
+    pub fn clone_self(&mut self) {
+        let menu = self.insert(Block {
+            opcode: "control_create_clone_of_menu",
+            parent: None,
+            next: None,
+            inputs: None,
+            fields: Some(Fields::CloneSelf),
+            mutation: None,
+        });
+        self.put(block::Stacking {
+            opcode: "control_create_clone_of",
+            inputs: Some([("CLONE_OPTION", Input::Prototype(menu))].into()),
+            fields: None,
+        });
+    }
+
     fn op(&mut self, block: Block) -> Operand {
         Operand(Input::Substack(self.insert(block)))
     }
