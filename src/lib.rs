@@ -646,7 +646,9 @@ impl Target<'_> {
         let id = self.builder.uid_generator.new_uid();
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
-                if let Input::Substack(operand_block_id) = input {
+                if let Input::Substack(operand_block_id)
+                | Input::Prototype(operand_block_id) = input
+                {
                     self.inner
                         .blocks
                         .get_mut(operand_block_id)
