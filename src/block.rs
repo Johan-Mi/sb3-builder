@@ -19,7 +19,7 @@ impl Serialize for Block {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Block", 7)?;
+        let mut s = serializer.serialize_struct("Block", 8)?;
         s.serialize_field("opcode", self.opcode)?;
         s.serialize_field("parent", &self.parent)?;
         s.serialize_field("next", &self.next)?;
@@ -32,6 +32,9 @@ impl Serialize for Block {
         }
         if let Some(mutation) = &self.mutation {
             s.serialize_field("mutation", mutation)?;
+        }
+        if self.opcode == "control_create_clone_of_menu" {
+            s.serialize_field("shadow", &true)?;
         }
         s.end()
     }
