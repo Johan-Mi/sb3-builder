@@ -1,5 +1,5 @@
 use crate::{Project, RealTarget};
-use serde::Serialize;
+use serde_derive::Serialize;
 use std::io;
 
 impl Project {

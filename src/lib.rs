@@ -15,6 +15,7 @@ use serde::{
     ser::{SerializeMap, SerializeStruct},
     Serialize,
 };
+use serde_derive::Serialize;
 use std::collections::HashMap;
 use uid::Uid;
 
