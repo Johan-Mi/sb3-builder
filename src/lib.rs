@@ -144,7 +144,7 @@ impl Target<'_> {
         ListRef { name, id }
     }
 
-    pub fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
+    pub const fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
         std::mem::replace(&mut self.point, point)
     }
 

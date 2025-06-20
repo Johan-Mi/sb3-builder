@@ -24,7 +24,7 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new_uid(&mut self) -> Uid {
+    pub const fn new_uid(&mut self) -> Uid {
         let counter = self.counter;
         self.counter = counter.checked_add(1).expect("ran out of UIDs");
         Uid(counter)
