@@ -38,16 +38,16 @@ impl Default for Project {
 }
 
 impl Project {
-    pub fn stage(&mut self) -> Target {
+    pub fn stage(&mut self) -> Target<'_> {
         self.target(0)
     }
 
-    pub fn add_sprite(&mut self, name: String) -> Target {
+    pub fn add_sprite(&mut self, name: String) -> Target<'_> {
         self.targets.push(RealTarget::new(name, false));
         self.target(self.targets.len() - 1)
     }
 
-    fn target(&mut self, index: usize) -> Target {
+    fn target(&mut self, index: usize) -> Target<'_> {
         Target {
             inner: &mut self.targets[index],
             builder: &mut self.builder,
