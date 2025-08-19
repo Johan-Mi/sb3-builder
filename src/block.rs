@@ -222,9 +222,7 @@ pub fn go_to_back_layer() -> Stacking {
 pub fn go_to_front_layer() -> Stacking {
     Stacking {
         opcode: "looks_gotofrontback",
-        inputs: Some(
-            [("FRONT_BACK", Input::String("front".to_owned()))].into(),
-        ),
+        inputs: Some([("FRONT_BACK", Input::String("front".to_owned()))].into()),
         fields: None,
     }
 }
@@ -244,11 +242,7 @@ pub const fn hide() -> Stacking {
 }
 
 #[must_use]
-pub fn insert_at_list(
-    list: ListRef,
-    item: Operand,
-    index: Operand,
-) -> Stacking {
+pub fn insert_at_list(list: ListRef, item: Operand, index: Operand) -> Stacking {
     Stacking {
         opcode: "data_insertatlist",
         inputs: Some([("ITEM", item.0), ("INDEX", index.0)].into()),
@@ -423,23 +417,17 @@ impl Serialize for Input {
     {
         match *self {
             Self::Substack(uid) => (2, uid).serialize(serializer),
-            Self::Number(n) if n == f64::INFINITY => {
-                (1, (4, "Infinity")).serialize(serializer)
-            }
+            Self::Number(n) if n == f64::INFINITY => (1, (4, "Infinity")).serialize(serializer),
             Self::Number(n) if n == f64::NEG_INFINITY => {
                 (1, (4, "-Infinity")).serialize(serializer)
             }
-            Self::Number(n) if n.is_nan() => {
-                (1, (4, "NaN")).serialize(serializer)
-            }
+            Self::Number(n) if n.is_nan() => (1, (4, "NaN")).serialize(serializer),
             Self::Number(n) => (1, (4, n)).serialize(serializer),
             Self::String(ref s) => (1, (10, s)).serialize(serializer),
             Self::Variable(VariableRef { ref name, id }) => {
                 (2, (12, name, id)).serialize(serializer)
             }
-            Self::List(ListRef { ref name, id }) => {
-                (2, (13, name, id)).serialize(serializer)
-            }
+            Self::List(ListRef { ref name, id }) => (2, (13, name, id)).serialize(serializer),
             Self::Prototype(uid) => (1, uid).serialize(serializer),
         }
     }

@@ -23,10 +23,7 @@ impl Costume {
     ///
     /// This function will return an error if the path has no extension
     /// or it fails to read the file.
-    pub fn from_file(
-        name: String,
-        path: &Path,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_file(name: String, path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let data_format = path
             .extension()
             .and_then(std::ffi::OsStr::to_str)

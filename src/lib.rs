@@ -151,11 +151,10 @@ impl Target<'_> {
         name: String,
         parameters: Vec<Parameter>,
     ) -> (CustomBlock, InsertionPoint) {
-        let param_ids = std::iter::repeat_with(|| {
-            &*self.builder.uid_generator.new_uid().to_string().leak()
-        })
-        .take(parameters.len())
-        .collect::<Vec<_>>();
+        let param_ids =
+            std::iter::repeat_with(|| &*self.builder.uid_generator.new_uid().to_string().leak())
+                .take(parameters.len())
+                .collect::<Vec<_>>();
 
         let argumentnames = Some(
             serde_json::to_string(
@@ -187,8 +186,8 @@ impl Target<'_> {
             });
         }
 
-        let argumentids = serde_json::to_string(&param_ids)
-            .expect("failed to serialize argument IDs");
+        let argumentids =
+            serde_json::to_string(&param_ids).expect("failed to serialize argument IDs");
 
         let mutation = Mutation {
             proccode,
@@ -225,9 +224,7 @@ impl Target<'_> {
             definition,
             block::Stacking {
                 opcode: "procedures_definition",
-                inputs: Some(
-                    [("custom_block", Input::Prototype(prototype))].into(),
-                ),
+                inputs: Some([("custom_block", Input::Prototype(prototype))].into()),
                 fields: None,
             }
             .into(),
@@ -245,11 +242,7 @@ impl Target<'_> {
         )
     }
 
-    pub fn use_custom_block(
-        &mut self,
-        block: &CustomBlock,
-        arguments: Vec<Operand>,
-    ) {
+    pub fn use_custom_block(&mut self, block: &CustomBlock, arguments: Vec<Operand>) {
         let inputs = block
             .param_ids
             .iter()
@@ -325,11 +318,7 @@ impl Target<'_> {
         })
     }
 
-    pub fn for_(
-        &mut self,
-        variable: VariableRef,
-        times: Operand,
-    ) -> InsertionPoint {
+    pub fn for_(&mut self, variable: VariableRef, times: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_for_each",
             inputs: Some([("VALUE", times.0)].into()),
@@ -410,45 +399,27 @@ impl Target<'_> {
     }
 
     pub fn add(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_add",
-            [("NUM1", lhs.0), ("NUM2", rhs.0)],
-        )
+        self.binary_operation("operator_add", [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn sub(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_subtract",
-            [("NUM1", lhs.0), ("NUM2", rhs.0)],
-        )
+        self.binary_operation("operator_subtract", [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn mul(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_multiply",
-            [("NUM1", lhs.0), ("NUM2", rhs.0)],
-        )
+        self.binary_operation("operator_multiply", [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn div(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_divide",
-            [("NUM1", lhs.0), ("NUM2", rhs.0)],
-        )
+        self.binary_operation("operator_divide", [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn modulo(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_mod",
-            [("NUM1", lhs.0), ("NUM2", rhs.0)],
-        )
+        self.binary_operation("operator_mod", [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn lt(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_lt",
-            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
-        )
+        self.binary_operation("operator_lt", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
     }
 
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
@@ -459,10 +430,7 @@ impl Target<'_> {
     }
 
     pub fn gt(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_gt",
-            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
-        )
+        self.binary_operation("operator_gt", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
     }
 
     pub fn not(&mut self, operand: Operand) -> Operand {
@@ -477,17 +445,11 @@ impl Target<'_> {
     }
 
     pub fn and(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_and",
-            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
-        )
+        self.binary_operation("operator_and", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
     }
 
     pub fn or(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_or",
-            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
-        )
+        self.binary_operation("operator_or", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
     }
 
     pub fn x_position(&mut self) -> Operand {
@@ -517,11 +479,7 @@ impl Target<'_> {
         })
     }
 
-    pub fn item_num_of_list(
-        &mut self,
-        list: ListRef,
-        item: Operand,
-    ) -> Operand {
+    pub fn item_num_of_list(&mut self, list: ListRef, item: Operand) -> Operand {
         self.op(Block {
             opcode: "data_itemnumoflist",
             parent: None,
@@ -565,11 +523,7 @@ impl Target<'_> {
         })
     }
 
-    pub fn list_contains_item(
-        &mut self,
-        list: ListRef,
-        item: Operand,
-    ) -> Operand {
+    pub fn list_contains_item(&mut self, list: ListRef, item: Operand) -> Operand {
         self.op(Block {
             opcode: "data_listcontainsitem",
             parent: None,
@@ -581,10 +535,7 @@ impl Target<'_> {
     }
 
     pub fn join(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_join",
-            [("STRING1", lhs.0), ("STRING2", rhs.0)],
-        )
+        self.binary_operation("operator_join", [("STRING1", lhs.0), ("STRING2", rhs.0)])
     }
 
     pub fn mathop(&mut self, operator: &'static str, num: Operand) -> Operand {
@@ -666,8 +617,8 @@ impl Target<'_> {
         let id = self.builder.uid_generator.new_uid();
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
-                if let Input::Substack(operand_block_id)
-                | Input::Prototype(operand_block_id) = input
+                if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) =
+                    input
                 {
                     self.inner
                         .blocks
