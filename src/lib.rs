@@ -179,12 +179,10 @@ impl Target<'_> {
         argumentdefaults.push(']');
 
         let mut proccode = name;
-        for param in &parameters {
-            proccode.push_str(match param.kind {
-                ParameterKind::StringOrNumber => " %s",
-                ParameterKind::Boolean => " %b",
-            });
-        }
+        proccode.extend(parameters.iter().map(|param| match param.kind {
+            ParameterKind::StringOrNumber => " %s",
+            ParameterKind::Boolean => " %b",
+        }));
 
         let argumentids =
             serde_json::to_string(&param_ids).expect("failed to serialize argument IDs");
