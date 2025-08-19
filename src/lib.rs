@@ -17,18 +17,15 @@ use std::collections::HashMap;
 use uid::Uid;
 
 pub struct Project {
-    builder: Builder,
+    uid_generator: uid::Generator,
     targets: Vec<RealTarget>,
 }
 
 impl Default for Project {
     fn default() -> Self {
-        let builder = Builder {
-            uid_generator: uid::Generator::default(),
-        };
         let stage = RealTarget::new("Stage".to_owned(), true);
         Self {
-            builder,
+            uid_generator: uid::Generator::default(),
             targets: vec![stage],
         }
     }
@@ -47,17 +44,13 @@ impl Project {
     fn target(&mut self, index: usize) -> Target<'_> {
         Target {
             inner: &mut self.targets[index],
-            builder: &mut self.builder,
+            uid_generator: &mut self.uid_generator,
             point: InsertionPoint {
                 parent: None,
                 place: Place::Next,
             },
         }
     }
-}
-
-struct Builder {
-    uid_generator: uid::Generator,
 }
 
 #[derive(Serialize)]
@@ -113,13 +106,13 @@ impl Serialize for Comment {
 
 pub struct Target<'a> {
     inner: &'a mut RealTarget,
-    builder: &'a mut Builder,
+    uid_generator: &'a mut uid::Generator,
     point: InsertionPoint,
 }
 
 impl Target<'_> {
     pub fn add_comment(&mut self, text: String) {
-        let id = self.builder.uid_generator.new_uid();
+        let id = self.uid_generator.new_uid();
         self.inner.comments.insert(id, Comment { text });
     }
 
@@ -128,14 +121,14 @@ impl Target<'_> {
     }
 
     pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
-        let id = self.builder.uid_generator.new_uid();
+        let id = self.uid_generator.new_uid();
         let name = variable.name.clone();
         self.inner.variables.insert(id, variable);
         VariableRef { name, id }
     }
 
     pub fn add_list(&mut self, list: List) -> ListRef {
-        let id = self.builder.uid_generator.new_uid();
+        let id = self.uid_generator.new_uid();
         let name = list.name.clone();
         self.inner.lists.insert(id, list);
         ListRef { name, id }
@@ -152,7 +145,7 @@ impl Target<'_> {
         parameters: Vec<Parameter>,
     ) -> (CustomBlock, InsertionPoint) {
         let param_ids =
-            std::iter::repeat_with(|| &*self.builder.uid_generator.new_uid().to_string().leak())
+            std::iter::repeat_with(|| &*self.uid_generator.new_uid().to_string().leak())
                 .take(parameters.len())
                 .collect::<Vec<_>>();
 
@@ -204,7 +197,7 @@ impl Target<'_> {
             )
             .collect();
 
-        let definition = self.builder.uid_generator.new_uid();
+        let definition = self.uid_generator.new_uid();
         let prototype = self.insert(Block {
             opcode: "procedures_prototype",
             parent: Some(definition),
@@ -280,7 +273,7 @@ impl Target<'_> {
     }
 
     pub fn start_script(&mut self, hat: block::Hat) {
-        let id = self.builder.uid_generator.new_uid();
+        let id = self.uid_generator.new_uid();
         self.inner.blocks.insert(id, hat.into());
         self.point = InsertionPoint {
             parent: Some(id),
@@ -612,7 +605,7 @@ impl Target<'_> {
     }
 
     fn insert(&mut self, block: Block) -> Uid {
-        let id = self.builder.uid_generator.new_uid();
+        let id = self.uid_generator.new_uid();
         if let Some(inputs) = &block.inputs {
             for input in inputs.values() {
                 if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) =
