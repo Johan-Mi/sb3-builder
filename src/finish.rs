@@ -1,5 +1,5 @@
 use crate::{Project, RealTarget};
-use serde_derive::Serialize;
+use serde::ser::SerializeStruct;
 use std::io;
 
 impl Project {
@@ -22,23 +22,32 @@ impl Project {
         }
 
         zip.start_file("project.json", zip::write::FileOptions::default())?;
-        let finished_project = FinishedProject {
-            meta: Meta { semver: "3.0.0" },
-            targets: &self.targets,
-        };
-        serde_json::to_writer(zip, &finished_project)?;
+        let targets = &self.targets;
+        serde_json::to_writer(zip, &FinishedProject { targets })?;
 
         Ok(())
     }
 }
 
-#[derive(Serialize)]
 struct FinishedProject<'a> {
-    meta: Meta,
     targets: &'a [RealTarget],
 }
 
-#[derive(Serialize)]
-struct Meta {
-    semver: &'static str,
+impl serde::Serialize for FinishedProject<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("FinishedProject", 2)?;
+        s.serialize_field("meta", &Meta)?;
+        s.serialize_field("targets", &self.targets)?;
+        s.end()
+    }
+}
+
+struct Meta;
+
+impl serde::Serialize for Meta {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("Meta", 1)?;
+        s.serialize_field("semver", "3.0.0")?;
+        s.end()
+    }
 }

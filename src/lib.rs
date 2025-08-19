@@ -12,7 +12,6 @@ use serde::{
     ser::{SerializeMap, SerializeStruct},
     Serialize,
 };
-use serde_derive::Serialize;
 use std::collections::HashMap;
 use uid::Uid;
 
@@ -53,18 +52,30 @@ impl Project {
     }
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct RealTarget {
     name: String,
     is_stage: bool,
-    current_costume: usize,
     costumes: Vec<Costume>,
-    sounds: [(); 0],
     variables: HashMap<Uid, Variable>,
     lists: HashMap<Uid, List>,
     blocks: HashMap<Uid, block::Block>,
     comments: HashMap<Uid, Comment>,
+}
+
+impl Serialize for RealTarget {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("RealTarget", 9)?;
+        s.serialize_field("name", &self.name)?;
+        s.serialize_field("isStage", &self.is_stage)?;
+        s.serialize_field("currentCostume", &0)?;
+        s.serialize_field("costumes", &self.costumes)?;
+        s.serialize_field("sounds", &[(); 0])?;
+        s.serialize_field("variables", &self.variables)?;
+        s.serialize_field("lists", &self.lists)?;
+        s.serialize_field("blocks", &self.blocks)?;
+        s.serialize_field("comments", &self.comments)?;
+        todo!()
+    }
 }
 
 impl RealTarget {
@@ -72,9 +83,7 @@ impl RealTarget {
         Self {
             name,
             is_stage,
-            current_costume: 0,
             costumes: Vec::new(),
-            sounds: [],
             variables: HashMap::new(),
             lists: HashMap::new(),
             blocks: HashMap::new(),

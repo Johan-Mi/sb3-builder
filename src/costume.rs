@@ -1,19 +1,27 @@
-use serde_derive::Serialize;
+use serde::ser::SerializeStruct;
 use std::{
     fs,
     io::{Seek, Write},
     path::Path,
 };
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Costume {
     name: String,
     data_format: String,
     asset_id: String,
     md5ext: String,
-    #[serde(skip)]
     content: Vec<u8>,
+}
+
+impl serde::Serialize for Costume {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("Costume", 4)?;
+        s.serialize_field("name", &self.name)?;
+        s.serialize_field("dataFormat", &self.data_format)?;
+        s.serialize_field("assetId", &self.asset_id)?;
+        s.serialize_field("md5ext", &self.md5ext)?;
+        s.end()
+    }
 }
 
 impl Costume {
