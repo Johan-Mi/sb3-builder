@@ -11,7 +11,7 @@ pub(crate) struct Block {
     pub(crate) next: Option<Uid>,
     pub(crate) inputs: Option<HashMap<&'static str, Input>>,
     pub(crate) fields: Option<Fields>,
-    pub(crate) mutation: Option<Mutation>,
+    pub(crate) mutation: Option<Box<Mutation>>,
 }
 
 impl Serialize for Block {

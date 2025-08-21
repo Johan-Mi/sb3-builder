@@ -210,11 +210,11 @@ impl Target<'_> {
             next: None,
             inputs: Some(inputs),
             fields: None,
-            mutation: Some(Mutation {
+            mutation: Some(Box::new(Mutation {
                 argumentnames,
                 argumentdefaults: Some(argumentdefaults),
                 ..mutation.clone()
-            }),
+            })),
         });
 
         self.inner.blocks.insert(
@@ -253,7 +253,7 @@ impl Target<'_> {
             next: None,
             inputs: Some(inputs),
             fields: None,
-            mutation: Some(block.mutation.clone()),
+            mutation: Some(Box::new(block.mutation.clone())),
         };
         let id = self.insert(block);
         self.set_next(id);
