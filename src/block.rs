@@ -15,10 +15,7 @@ pub(crate) struct Block {
 }
 
 impl Serialize for Block {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Block", 8)?;
         s.serialize_field("opcode", self.opcode)?;
         s.serialize_field("parent", &self.parent)?;
@@ -411,10 +408,7 @@ pub(crate) enum Input {
 }
 
 impl Serialize for Input {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match *self {
             Self::Substack(uid) => (2, uid).serialize(serializer),
             Self::Number(n) if n == f64::INFINITY => (1, (4, "Infinity")).serialize(serializer),
@@ -446,10 +440,7 @@ pub(crate) enum Fields {
 }
 
 impl Serialize for Fields {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Self::Variable(VariableRef { id, name }) => {
                 let mut m = serializer.serialize_map(Some(1))?;

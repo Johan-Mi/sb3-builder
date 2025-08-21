@@ -97,10 +97,7 @@ struct Comment {
 }
 
 impl Serialize for Comment {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut m = serializer.serialize_map(Some(7))?;
         m.serialize_entry("text", &self.text)?;
         m.serialize_entry("blockId", &())?;
@@ -676,10 +673,7 @@ pub enum Constant {
 }
 
 impl Serialize for Constant {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Self::String(s) => s.serialize(serializer),
             Self::Number(n) => n.serialize(serializer),
@@ -693,10 +687,7 @@ pub struct Variable {
 }
 
 impl Serialize for Variable {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         (&*self.name, &self.value).serialize(serializer)
     }
 }
@@ -713,10 +704,7 @@ pub struct List {
 }
 
 impl Serialize for List {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         (&*self.name, &self.items).serialize(serializer)
     }
 }
@@ -753,10 +741,7 @@ struct Mutation {
 }
 
 impl Serialize for Mutation {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Mutation", 7)?;
         s.serialize_field("tagName", "mutation")?;
         s.serialize_field("children", &[(); 0])?;
