@@ -1,9 +1,5 @@
 use crate::{uid::Uid, ListRef, Mutation, Operand, VariableRef};
-use serde::{
-    ser::{SerializeMap, SerializeStruct},
-    Serialize,
-};
-use std::collections::HashMap;
+use std::{collections::HashMap, io};
 
 pub(crate) struct Block {
     pub(crate) opcode: &'static str,
@@ -14,26 +10,44 @@ pub(crate) struct Block {
     pub(crate) mutation: Option<Box<Mutation>>,
 }
 
-impl Serialize for Block {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("Block", 8)?;
-        s.serialize_field("opcode", self.opcode)?;
-        s.serialize_field("parent", &self.parent)?;
-        s.serialize_field("next", &self.next)?;
-        s.serialize_field("topLevel", &self.parent.is_none())?;
+impl Block {
+    pub fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(writer, r#"{{"opcode":{:?},"parent":"#, self.opcode)?;
+        if let Some(parent) = self.parent {
+            write!(writer, "{parent}")
+        } else {
+            write!(writer, "null")
+        }?;
+        write!(writer, r#","next":"#)?;
+        if let Some(next) = self.next {
+            write!(writer, "{next}")
+        } else {
+            write!(writer, "null")
+        }?;
+        write!(writer, r#","topLevel":{}"#, self.parent.is_none())?;
         if let Some(inputs) = &self.inputs {
-            s.serialize_field("inputs", inputs)?;
+            write!(writer, r#","inputs":{{"#)?;
+            for (i, (name, input)) in inputs.iter().enumerate() {
+                if i != 0 {
+                    write!(writer, ",")?;
+                }
+                write!(writer, "{name:?}:")?;
+                input.serialize(writer)?;
+            }
+            write!(writer, "}}")?;
         }
         if let Some(fields) = &self.fields {
-            s.serialize_field("fields", fields)?;
+            write!(writer, r#","fields":"#)?;
+            fields.serialize(writer)?;
         }
         if let Some(mutation) = &self.mutation {
-            s.serialize_field("mutation", mutation)?;
+            write!(writer, r#","mutation":"#)?;
+            mutation.serialize(writer)?;
         }
         if self.opcode == "control_create_clone_of_menu" {
-            s.serialize_field("shadow", &true)?;
+            write!(writer, r#","shadow":true"#)?;
         }
-        s.end()
+        write!(writer, "}}")
     }
 }
 
@@ -407,22 +421,20 @@ pub(crate) enum Input {
     Prototype(Uid),
 }
 
-impl Serialize for Input {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl Input {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         match *self {
-            Self::Substack(uid) => (2, uid).serialize(serializer),
-            Self::Number(n) if n == f64::INFINITY => (1, (4, "Infinity")).serialize(serializer),
-            Self::Number(n) if n == f64::NEG_INFINITY => {
-                (1, (4, "-Infinity")).serialize(serializer)
-            }
-            Self::Number(n) if n.is_nan() => (1, (4, "NaN")).serialize(serializer),
-            Self::Number(n) => (1, (4, n)).serialize(serializer),
-            Self::String(ref s) => (1, (10, s)).serialize(serializer),
+            Self::Substack(uid) => write!(writer, "[2,{uid}]"),
+            Self::Number(n) if n == f64::INFINITY => write!(writer, r#"[1,[4,"Infinity"]]"#),
+            Self::Number(n) if n == f64::NEG_INFINITY => write!(writer, r#"[1,[4,"-Infinity"]]"#),
+            Self::Number(n) if n.is_nan() => write!(writer, r#"[1,[4,"NaN"]]"#),
+            Self::Number(n) => write!(writer, r"[1,[4,{n}]]"),
+            Self::String(ref s) => write!(writer, r"[1,[10,{s:?}]]"),
             Self::Variable(VariableRef { ref name, id }) => {
-                (2, (12, name, id)).serialize(serializer)
+                write!(writer, "[2,[12,{name:?},{id}]]")
             }
-            Self::List(ListRef { ref name, id }) => (2, (13, name, id)).serialize(serializer),
-            Self::Prototype(uid) => (1, uid).serialize(serializer),
+            Self::List(ListRef { ref name, id }) => write!(writer, "[2,[13,{name:?},{id}]]"),
+            Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
         }
     }
 }
@@ -439,54 +451,24 @@ pub(crate) enum Fields {
     CloneSelf,
 }
 
-impl Serialize for Fields {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl Fields {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
             Self::Variable(VariableRef { id, name }) => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("VARIABLE", &(&**name, *id))?;
-                m.end()
+                write!(writer, r#"{{"VARIABLE":[{name:?},{id}]}}"#)
             }
             Self::List(ListRef { id, name }) => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("LIST", &(&**name, *id))?;
-                m.end()
+                write!(writer, r#"{{"LIST":[{name:?},{id}]}}"#)
             }
-            Self::Value(name) => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("VALUE", &(&**name, ()))?;
-                m.end()
-            }
-            Self::Operator(operator) => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("OPERATOR", &(*operator, ()))?;
-                m.end()
-            }
-            Self::KeyOption(key) => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("KEY_OPTION", &(key, ()))?;
-                m.end()
-            }
+            Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
+            Self::Operator(operator) => write!(writer, r#"{{"OPERATOR":[{operator:?},null]}}"#),
+            Self::KeyOption(key) => write!(writer, r#"{{"KEY_OPTION":[{key:?},null]}}"#),
             Self::BroadcastOption(broadcast) => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("BROADCAST_OPTION", &(broadcast, ()))?;
-                m.end()
+                write!(writer, r#"{{"BROADCAST_OPTION":[{broadcast:?},null]}}"#)
             }
-            Self::StopAll => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("STOP_OPTION", &("all", ()))?;
-                m.end()
-            }
-            Self::StopThisScript => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("STOP_OPTION", &("this script", ()))?;
-                m.end()
-            }
-            Self::CloneSelf => {
-                let mut m = serializer.serialize_map(Some(1))?;
-                m.serialize_entry("CLONE_OPTION", &("_myself_", ()))?;
-                m.end()
-            }
+            Self::StopAll => write!(writer, r#"{{"STOP_OPTION":["all",null]}}"#),
+            Self::StopThisScript => write!(writer, r#"{{"STOP_OPTION":["this script",null]}}"#),
+            Self::CloneSelf => write!(writer, r#"{{"CLONE_OPTION":["_myself_",null]}}"#),
         }
     }
 }

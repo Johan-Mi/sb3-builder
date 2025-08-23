@@ -1,5 +1,4 @@
 use crate::{Project, RealTarget};
-use serde::ser::SerializeStruct;
 use std::io;
 
 impl Project {
@@ -22,32 +21,19 @@ impl Project {
         }
 
         zip.start_file("project.json", zip::write::FileOptions::default())?;
-        let targets = &self.targets;
-        serde_json::to_writer(zip, &FinishedProject { targets })?;
+        serialize(&self.targets, &mut zip)?;
 
         Ok(())
     }
 }
 
-struct FinishedProject<'a> {
-    targets: &'a [RealTarget],
-}
-
-impl serde::Serialize for FinishedProject<'_> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("FinishedProject", 2)?;
-        s.serialize_field("meta", &Meta)?;
-        s.serialize_field("targets", &self.targets)?;
-        s.end()
+fn serialize(targets: &[RealTarget], writer: &mut dyn io::Write) -> io::Result<()> {
+    write!(writer, r#"{{"meta":{{"semver":"3.0.0"}},"targets":["#)?;
+    for (i, target) in targets.iter().enumerate() {
+        if i != 0 {
+            write!(writer, ",")?;
+        }
+        target.serialize(writer)?;
     }
-}
-
-struct Meta;
-
-impl serde::Serialize for Meta {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("Meta", 1)?;
-        s.serialize_field("semver", "3.0.0")?;
-        s.end()
-    }
+    write!(writer, "]}}")
 }

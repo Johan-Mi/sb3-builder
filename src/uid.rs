@@ -1,4 +1,3 @@
-use serde::Serialize;
 use std::{fmt, num::NonZeroU32};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -6,13 +5,13 @@ pub struct Uid(NonZeroU32);
 
 impl fmt::Display for Uid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, r#""{}""#, self.0)
     }
 }
 
-impl Serialize for Uid {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
+impl Uid {
+    pub const fn raw(self) -> NonZeroU32 {
+        self.0
     }
 }
 

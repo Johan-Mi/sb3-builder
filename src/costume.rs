@@ -1,7 +1,6 @@
-use serde::ser::SerializeStruct;
 use std::{
     fs,
-    io::{Seek, Write},
+    io::{self, Seek, Write},
     path::Path,
 };
 
@@ -13,14 +12,13 @@ pub struct Costume {
     content: Vec<u8>,
 }
 
-impl serde::Serialize for Costume {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("Costume", 4)?;
-        s.serialize_field("name", &self.name)?;
-        s.serialize_field("dataFormat", &self.data_format)?;
-        s.serialize_field("assetId", &self.asset_id)?;
-        s.serialize_field("md5ext", &self.md5ext)?;
-        s.end()
+impl Costume {
+    pub(crate) fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(
+            writer,
+            r#"{{"name":{:?},"dataFormat":{:?},"assetId":{:?},"md5ext":{:?}}}"#,
+            self.name, self.data_format, self.asset_id, self.md5ext
+        )
     }
 }
 

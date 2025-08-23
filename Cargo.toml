@@ -18,6 +18,4 @@ clippy.todo = "deny"
 
 [dependencies]
 md5 = { version = "0.7.0", default-features = false }
-serde = { version = "1.0.219", default-features = false }
-serde_json = "1.0.108"
 zip = { version = "0.6.6", default-features = false, features = ["deflate"] }

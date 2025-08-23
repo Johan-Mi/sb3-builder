@@ -8,11 +8,7 @@ pub use costume::Costume;
 pub use operand::Operand;
 
 use block::{Block, Fields, Input};
-use serde::{
-    ser::{SerializeMap, SerializeStruct},
-    Serialize,
-};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write as _, io};
 use uid::Uid;
 
 pub struct Project {
@@ -62,19 +58,52 @@ struct RealTarget {
     comments: HashMap<Uid, Comment>,
 }
 
-impl Serialize for RealTarget {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("RealTarget", 9)?;
-        s.serialize_field("name", &self.name)?;
-        s.serialize_field("isStage", &self.is_stage)?;
-        s.serialize_field("currentCostume", &0)?;
-        s.serialize_field("costumes", &self.costumes)?;
-        s.serialize_field("sounds", &[(); 0])?;
-        s.serialize_field("variables", &self.variables)?;
-        s.serialize_field("lists", &self.lists)?;
-        s.serialize_field("blocks", &self.blocks)?;
-        s.serialize_field("comments", &self.comments)?;
-        s.end()
+impl RealTarget {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(
+            writer,
+            r#"{{"name":{:?},"isStage":{},"currentCostume":0,"costumes":["#,
+            self.name, self.is_stage
+        )?;
+        for (i, costume) in self.costumes.iter().enumerate() {
+            if i != 0 {
+                write!(writer, ",")?;
+            }
+            costume.serialize(writer)?;
+        }
+        write!(writer, r#"],"sounds":[],"variables":{{"#)?;
+        for (i, (id, variable)) in self.variables.iter().enumerate() {
+            if i != 0 {
+                write!(writer, ",")?;
+            }
+            write!(writer, "{id}:")?;
+            variable.serialize(writer)?;
+        }
+        write!(writer, r#"}},"lists":{{"#)?;
+        for (i, (id, list)) in self.lists.iter().enumerate() {
+            if i != 0 {
+                write!(writer, ",")?;
+            }
+            write!(writer, "{id}:")?;
+            list.serialize(writer)?;
+        }
+        write!(writer, r#"}},"blocks":{{"#)?;
+        for (i, (id, block)) in self.blocks.iter().enumerate() {
+            if i != 0 {
+                write!(writer, ",")?;
+            }
+            write!(writer, "{id}:")?;
+            block.serialize(writer)?;
+        }
+        write!(writer, r#"}},"comments":{{"#)?;
+        for (i, (id, comment)) in self.comments.iter().enumerate() {
+            if i != 0 {
+                write!(writer, ",")?;
+            }
+            write!(writer, "{id}:")?;
+            comment.serialize(writer)?;
+        }
+        write!(writer, "}}}}")
     }
 }
 
@@ -96,17 +125,13 @@ struct Comment {
     text: String,
 }
 
-impl Serialize for Comment {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut m = serializer.serialize_map(Some(7))?;
-        m.serialize_entry("text", &self.text)?;
-        m.serialize_entry("blockId", &())?;
-        m.serialize_entry("minimized", &false)?;
-        m.serialize_entry("x", &())?;
-        m.serialize_entry("y", &())?;
-        m.serialize_entry("width", &0)?;
-        m.serialize_entry("height", &0)?;
-        m.end()
+impl Comment {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(
+            writer,
+            r#"{{"text":{:?},"blockId":null,"minimized":false,"x":null,"y":null,"width":0,"height":0}}"#,
+            self.text
+        )
     }
 }
 
@@ -151,19 +176,18 @@ impl Target<'_> {
         parameters: Vec<Parameter>,
     ) -> (CustomBlock, InsertionPoint) {
         let param_ids =
-            std::iter::repeat_with(|| &*self.uid_generator.new_uid().to_string().leak())
+            std::iter::repeat_with(|| &*self.uid_generator.new_uid().raw().to_string().leak())
                 .take(parameters.len())
                 .collect::<Vec<_>>();
 
-        let argumentnames = Some(
-            serde_json::to_string(
-                &parameters
-                    .iter()
-                    .map(|param| &param.name)
-                    .collect::<Vec<_>>(),
-            )
-            .expect("failed to serialize argument names"),
-        );
+        let mut argumentnames = "[".to_owned();
+        for (i, param) in parameters.iter().enumerate() {
+            if i != 0 {
+                argumentnames.push(',');
+            }
+            write!(argumentnames, "{:?}", param.name).expect("writing to `String` cannot fail");
+        }
+        argumentnames.push(']');
 
         let mut argumentdefaults = "[".to_owned();
         for (i, param) in parameters.iter().enumerate() {
@@ -183,8 +207,14 @@ impl Target<'_> {
             ParameterKind::Boolean => " %b",
         }));
 
-        let argumentids =
-            serde_json::to_string(&param_ids).expect("failed to serialize argument IDs");
+        let mut argumentids = "[".to_owned();
+        for (i, id) in param_ids.iter().enumerate() {
+            if i != 0 {
+                argumentids.push(',');
+            }
+            write!(argumentids, "{id:?}").expect("writing to `String` cannot fail");
+        }
+        argumentids.push(']');
 
         let mutation = Mutation {
             proccode,
@@ -211,7 +241,7 @@ impl Target<'_> {
             inputs: Some(inputs),
             fields: None,
             mutation: Some(Box::new(Mutation {
-                argumentnames,
+                argumentnames: Some(argumentnames),
                 argumentdefaults: Some(argumentdefaults),
                 ..mutation.clone()
             })),
@@ -672,11 +702,11 @@ pub enum Constant {
     Number(f64),
 }
 
-impl Serialize for Constant {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl Constant {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
-            Self::String(s) => s.serialize(serializer),
-            Self::Number(n) => n.serialize(serializer),
+            Self::String(s) => write!(writer, "{s:?}"),
+            Self::Number(n) => write!(writer, "{n}"),
         }
     }
 }
@@ -686,9 +716,11 @@ pub struct Variable {
     pub value: Constant,
 }
 
-impl Serialize for Variable {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        (&*self.name, &self.value).serialize(serializer)
+impl Variable {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(writer, "[{:?},", self.name)?;
+        self.value.serialize(writer)?;
+        write!(writer, "]")
     }
 }
 
@@ -703,9 +735,16 @@ pub struct List {
     pub items: Vec<Constant>,
 }
 
-impl Serialize for List {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        (&*self.name, &self.items).serialize(serializer)
+impl List {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(writer, "[{:?}, [", self.name)?;
+        for (i, item) in self.items.iter().enumerate() {
+            if i != 0 {
+                write!(writer, ",")?;
+            }
+            item.serialize(writer)?;
+        }
+        write!(writer, "]]")
     }
 }
 
@@ -740,20 +779,19 @@ struct Mutation {
     argumentdefaults: Option<String>,
 }
 
-impl Serialize for Mutation {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("Mutation", 7)?;
-        s.serialize_field("tagName", "mutation")?;
-        s.serialize_field("children", &[(); 0])?;
-        s.serialize_field("proccode", &self.proccode)?;
-        s.serialize_field("argumentids", &self.argumentids)?;
-        s.serialize_field("warp", "true")?;
-        if let Some(argumentsnames) = &self.argumentnames {
-            s.serialize_field("argumentnames", argumentsnames)?;
+impl Mutation {
+    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+        write!(
+            writer,
+            r#"{{"tagName":"mutation","children":[],"proccode":{:?},"argumentids":{:?},"warp":true"#,
+            self.proccode, self.argumentids
+        )?;
+        if let Some(argumentnames) = &self.argumentnames {
+            write!(writer, r#","argumentnames":{argumentnames:?}"#)?;
         }
-        if let Some(argumentsdefaults) = &self.argumentdefaults {
-            s.serialize_field("argumentdefaults", argumentsdefaults)?;
+        if let Some(argumentdefaults) = &self.argumentdefaults {
+            write!(writer, r#","argumentdefaults":{argumentdefaults:?}"#)?;
         }
-        s.end()
+        write!(writer, "}}")
     }
 }
