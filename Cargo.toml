@@ -10,10 +10,11 @@ categories = ["encoding"]
 
 [lints]
 rust.unsafe_code = "deny"
-clippy.nursery = "warn"
-clippy.pedantic = "warn"
-clippy.cargo = "warn"
+clippy.nursery = { level = "warn", priority = -1 }
+clippy.pedantic = { level = "warn", priority = -1 }
+clippy.cargo = { level = "warn", priority = -1 }
 clippy.unwrap_used = "warn"
+clippy.todo = "deny"
 
 [dependencies]
 md5 = { version = "0.7.0", default-features = false }
