@@ -74,7 +74,7 @@ impl Serialize for RealTarget {
         s.serialize_field("lists", &self.lists)?;
         s.serialize_field("blocks", &self.blocks)?;
         s.serialize_field("comments", &self.comments)?;
-        todo!()
+        s.end()
     }
 }
 
