@@ -55,7 +55,7 @@ struct RealTarget {
     variables: Vec<Variable>,
     lists: Vec<List>,
     blocks: HashMap<Uid, block::Block>,
-    comments: HashMap<Uid, Comment>,
+    comments: Vec<Comment>,
 }
 
 impl RealTarget {
@@ -96,11 +96,11 @@ impl RealTarget {
             block.serialize(writer)?;
         }
         write!(writer, r#"}},"comments":{{"#)?;
-        for (i, (id, comment)) in self.comments.iter().enumerate() {
+        for (i, comment) in self.comments.iter().enumerate() {
             if i != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, "{id}:")?;
+            write!(writer, r#""c{i}":"#)?;
             comment.serialize(writer)?;
         }
         write!(writer, "}}}}")
@@ -116,7 +116,7 @@ impl RealTarget {
             variables: Vec::new(),
             lists: Vec::new(),
             blocks: HashMap::new(),
-            comments: HashMap::new(),
+            comments: Vec::new(),
         }
     }
 }
@@ -143,8 +143,7 @@ pub struct Target<'a> {
 
 impl Target<'_> {
     pub fn add_comment(&mut self, text: String) {
-        let id = self.uid_generator.new_uid();
-        self.inner.comments.insert(id, Comment { text });
+        self.inner.comments.push(Comment { text });
     }
 
     pub fn add_costume(&mut self, costume: Costume) {
