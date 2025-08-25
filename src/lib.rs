@@ -237,7 +237,7 @@ impl Target<'_> {
             opcode: "procedures_prototype",
             parent: Some(definition),
             next: None,
-            inputs: Some(inputs),
+            inputs,
             fields: None,
             mutation: Some(Box::new(Mutation {
                 argumentnames: Some(argumentnames),
@@ -250,7 +250,7 @@ impl Target<'_> {
             definition,
             block::Stacking {
                 opcode: "procedures_definition",
-                inputs: Some([("custom_block", Input::Prototype(prototype))].into()),
+                inputs: Vec::from([("custom_block", Input::Prototype(prototype))]),
                 fields: None,
             }
             .into(),
@@ -280,7 +280,7 @@ impl Target<'_> {
             opcode: "procedures_call",
             parent: self.point.parent,
             next: None,
-            inputs: Some(inputs),
+            inputs,
             fields: None,
             mutation: Some(Box::new(block.mutation.clone())),
         };
@@ -301,7 +301,7 @@ impl Target<'_> {
             opcode,
             parent: None,
             next: None,
-            inputs: None,
+            inputs: Vec::new(),
             fields: Some(Fields::Value(param.name)),
             mutation: None,
         })
@@ -335,7 +335,7 @@ impl Target<'_> {
     pub fn repeat(&mut self, times: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_repeat",
-            inputs: Some([("TIMES", times.0)].into()),
+            inputs: Vec::from([("TIMES", times.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -347,7 +347,7 @@ impl Target<'_> {
     pub fn for_(&mut self, variable: VariableRef, times: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_for_each",
-            inputs: Some([("VALUE", times.0)].into()),
+            inputs: Vec::from([("VALUE", times.0)]),
             fields: Some(Fields::Variable(variable)),
         });
         self.insert_at(InsertionPoint {
@@ -359,7 +359,7 @@ impl Target<'_> {
     pub fn if_(&mut self, condition: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_if",
-            inputs: Some([("CONDITION", condition.0)].into()),
+            inputs: Vec::from([("CONDITION", condition.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -371,7 +371,7 @@ impl Target<'_> {
     pub fn if_else(&mut self, condition: Operand) -> [InsertionPoint; 2] {
         self.put(block::Stacking {
             opcode: "control_if_else",
-            inputs: Some([("CONDITION", condition.0)].into()),
+            inputs: Vec::from([("CONDITION", condition.0)]),
             fields: None,
         });
         let after = self.insert_at(InsertionPoint {
@@ -388,7 +388,7 @@ impl Target<'_> {
     pub fn while_(&mut self, condition: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_while",
-            inputs: Some([("CONDITION", condition.0)].into()),
+            inputs: Vec::from([("CONDITION", condition.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -400,7 +400,7 @@ impl Target<'_> {
     pub fn repeat_until(&mut self, condition: Operand) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_repeat_until",
-            inputs: Some([("CONDITION", condition.0)].into()),
+            inputs: Vec::from([("CONDITION", condition.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -418,7 +418,7 @@ impl Target<'_> {
             opcode,
             parent: None,
             next: None,
-            inputs: Some(operands.into()),
+            inputs: operands.into(),
             fields: None,
             mutation: None,
         })
@@ -464,7 +464,7 @@ impl Target<'_> {
             opcode: "operator_not",
             parent: None,
             next: None,
-            inputs: Some([("OPERAND", operand.0)].into()),
+            inputs: Vec::from([("OPERAND", operand.0)]),
             fields: None,
             mutation: None,
         })
@@ -499,7 +499,7 @@ impl Target<'_> {
             opcode: "data_itemoflist",
             parent: None,
             next: None,
-            inputs: Some([("INDEX", index.0)].into()),
+            inputs: Vec::from([("INDEX", index.0)]),
             fields: Some(Fields::List(list)),
             mutation: None,
         })
@@ -510,7 +510,7 @@ impl Target<'_> {
             opcode: "data_itemnumoflist",
             parent: None,
             next: None,
-            inputs: Some([("ITEM", item.0)].into()),
+            inputs: Vec::from([("ITEM", item.0)]),
             fields: Some(Fields::List(list)),
             mutation: None,
         })
@@ -521,7 +521,7 @@ impl Target<'_> {
             opcode: "operator_length",
             parent: None,
             next: None,
-            inputs: Some([("STRING", string.0)].into()),
+            inputs: Vec::from([("STRING", string.0)]),
             fields: None,
             mutation: None,
         })
@@ -532,7 +532,7 @@ impl Target<'_> {
             opcode: "data_lengthoflist",
             parent: None,
             next: None,
-            inputs: None,
+            inputs: Vec::new(),
             fields: Some(Fields::List(list)),
             mutation: None,
         })
@@ -543,7 +543,7 @@ impl Target<'_> {
             opcode: "operator_letter_of",
             parent: None,
             next: None,
-            inputs: Some([("STRING", string.0), ("LETTER", index.0)].into()),
+            inputs: Vec::from([("STRING", string.0), ("LETTER", index.0)]),
             fields: None,
             mutation: None,
         })
@@ -554,7 +554,7 @@ impl Target<'_> {
             opcode: "data_listcontainsitem",
             parent: None,
             next: None,
-            inputs: Some([("ITEM", item.0)].into()),
+            inputs: Vec::from([("ITEM", item.0)]),
             fields: Some(Fields::List(list)),
             mutation: None,
         })
@@ -569,7 +569,7 @@ impl Target<'_> {
             opcode: "operator_mathop",
             parent: None,
             next: None,
-            inputs: Some([("NUM", num.0)].into()),
+            inputs: Vec::from([("NUM", num.0)]),
             fields: Some(Fields::Operator(operator)),
             mutation: None,
         })
@@ -580,7 +580,7 @@ impl Target<'_> {
             opcode: "sensing_mousex",
             parent: None,
             next: None,
-            inputs: None,
+            inputs: Vec::new(),
             fields: None,
             mutation: None,
         })
@@ -591,7 +591,7 @@ impl Target<'_> {
             opcode: "sensing_mousey",
             parent: None,
             next: None,
-            inputs: None,
+            inputs: Vec::new(),
             fields: None,
             mutation: None,
         })
@@ -602,7 +602,7 @@ impl Target<'_> {
             opcode: "sensing_keypressed",
             parent: None,
             next: None,
-            inputs: Some([("KEY_OPTION", key.0)].into()),
+            inputs: Vec::from([("KEY_OPTION", key.0)]),
             fields: None,
             mutation: None,
         })
@@ -613,7 +613,7 @@ impl Target<'_> {
             opcode: "operator_random",
             parent: None,
             next: None,
-            inputs: Some([("FROM", from.0), ("TO", to.0)].into()),
+            inputs: Vec::from([("FROM", from.0), ("TO", to.0)]),
             fields: None,
             mutation: None,
         })
@@ -624,13 +624,13 @@ impl Target<'_> {
             opcode: "control_create_clone_of_menu",
             parent: None,
             next: None,
-            inputs: None,
+            inputs: Vec::new(),
             fields: Some(Fields::CloneSelf),
             mutation: None,
         });
         self.put(block::Stacking {
             opcode: "control_create_clone_of",
-            inputs: Some([("CLONE_OPTION", Input::Prototype(menu))].into()),
+            inputs: Vec::from([("CLONE_OPTION", Input::Prototype(menu))]),
             fields: None,
         });
     }
@@ -641,17 +641,13 @@ impl Target<'_> {
 
     fn insert(&mut self, block: Block) -> Uid {
         let id = self.uid_generator.new_uid();
-        if let Some(inputs) = &block.inputs {
-            for input in inputs.values() {
-                if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) =
-                    input
-                {
-                    self.inner
-                        .blocks
-                        .get_mut(operand_block_id)
-                        .expect("operand block does not exist")
-                        .parent = Some(id);
-                }
+        for (_, input) in &block.inputs {
+            if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) = input {
+                self.inner
+                    .blocks
+                    .get_mut(operand_block_id)
+                    .expect("operand block does not exist")
+                    .parent = Some(id);
             }
         }
         self.inner.blocks.insert(id, block);
@@ -669,18 +665,8 @@ impl Target<'_> {
             .expect("parent block does not exist");
         match self.point.place {
             Place::Next => parent.next = Some(next),
-            Place::Substack1 => {
-                parent
-                    .inputs
-                    .get_or_insert_with(HashMap::default)
-                    .insert("SUBSTACK", Input::Substack(next));
-            }
-            Place::Substack2 => {
-                parent
-                    .inputs
-                    .get_or_insert_with(HashMap::default)
-                    .insert("SUBSTACK2", Input::Substack(next));
-            }
+            Place::Substack1 => parent.inputs.push(("SUBSTACK", Input::Substack(next))),
+            Place::Substack2 => parent.inputs.push(("SUBSTACK2", Input::Substack(next))),
         }
     }
 }
