@@ -431,9 +431,9 @@ impl Input {
             Self::Number(n) => write!(writer, r"[1,[4,{n}]]"),
             Self::String(ref s) => write!(writer, r"[1,[10,{s:?}]]"),
             Self::Variable(VariableRef { ref name, id }) => {
-                write!(writer, "[2,[12,{name:?},{id}]]")
+                write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#)
             }
-            Self::List(ListRef { ref name, id }) => write!(writer, "[2,[13,{name:?},{id}]]"),
+            Self::List(ListRef { ref name, id }) => write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#),
             Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
         }
     }
@@ -455,10 +455,10 @@ impl Fields {
     fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
             Self::Variable(VariableRef { id, name }) => {
-                write!(writer, r#"{{"VARIABLE":[{name:?},{id}]}}"#)
+                write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#)
             }
             Self::List(ListRef { id, name }) => {
-                write!(writer, r#"{{"LIST":[{name:?},{id}]}}"#)
+                write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#)
             }
             Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
             Self::Operator(operator) => write!(writer, r#"{{"OPERATOR":[{operator:?},null]}}"#),

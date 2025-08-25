@@ -52,8 +52,8 @@ struct RealTarget {
     name: String,
     is_stage: bool,
     costumes: Vec<Costume>,
-    variables: HashMap<Uid, Variable>,
-    lists: HashMap<Uid, List>,
+    variables: Vec<Variable>,
+    lists: Vec<List>,
     blocks: HashMap<Uid, block::Block>,
     comments: HashMap<Uid, Comment>,
 }
@@ -72,19 +72,19 @@ impl RealTarget {
             costume.serialize(writer)?;
         }
         write!(writer, r#"],"sounds":[],"variables":{{"#)?;
-        for (i, (id, variable)) in self.variables.iter().enumerate() {
+        for (i, variable) in self.variables.iter().enumerate() {
             if i != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, "{id}:")?;
+            write!(writer, r#""v{i}":"#)?;
             variable.serialize(writer)?;
         }
         write!(writer, r#"}},"lists":{{"#)?;
-        for (i, (id, list)) in self.lists.iter().enumerate() {
+        for (i, list) in self.lists.iter().enumerate() {
             if i != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, "{id}:")?;
+            write!(writer, r#""l{i}":"#)?;
             list.serialize(writer)?;
         }
         write!(writer, r#"}},"blocks":{{"#)?;
@@ -113,8 +113,8 @@ impl RealTarget {
             name,
             is_stage,
             costumes: Vec::new(),
-            variables: HashMap::new(),
-            lists: HashMap::new(),
+            variables: Vec::new(),
+            lists: Vec::new(),
             blocks: HashMap::new(),
             comments: HashMap::new(),
         }
@@ -152,16 +152,16 @@ impl Target<'_> {
     }
 
     pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
-        let id = self.uid_generator.new_uid();
+        let id = self.inner.variables.len();
         let name = (&*variable.name).into();
-        self.inner.variables.insert(id, variable);
+        self.inner.variables.push(variable);
         VariableRef { name, id }
     }
 
     pub fn add_list(&mut self, list: List) -> ListRef {
-        let id = self.uid_generator.new_uid();
+        let id = self.inner.variables.len();
         let name = (&*list.name).into();
-        self.inner.lists.insert(id, list);
+        self.inner.lists.push(list);
         ListRef { name, id }
     }
 
@@ -727,7 +727,7 @@ impl Variable {
 #[derive(Clone)]
 pub struct VariableRef {
     name: Box<str>,
-    id: Uid,
+    id: usize,
 }
 
 pub struct List {
@@ -751,7 +751,7 @@ impl List {
 #[derive(Clone)]
 pub struct ListRef {
     name: Box<str>,
-    id: Uid,
+    id: usize,
 }
 
 #[derive(Clone)]
