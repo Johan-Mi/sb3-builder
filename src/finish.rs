@@ -1,7 +1,6 @@
-use crate::{Project, RealTarget};
-use std::io;
+use std::io::{self, Write as _};
 
-impl Project {
+impl crate::Project {
     /// Writes the [`Project`] as a ZIP file to the given writer,
     /// typically a [`File`].
     ///
@@ -21,19 +20,15 @@ impl Project {
         }
 
         zip.start_file("project.json", zip::write::FileOptions::default())?;
-        serialize(&self.targets, &mut zip)?;
+        write!(zip, r#"{{"meta":{{"semver":"3.0.0"}},"targets":["#)?;
+        for (i, target) in self.targets.iter().enumerate() {
+            if i != 0 {
+                write!(zip, ",")?;
+            }
+            target.serialize(&mut zip)?;
+        }
+        write!(zip, "]}}")?;
 
         Ok(())
     }
-}
-
-fn serialize(targets: &[RealTarget], writer: &mut dyn io::Write) -> io::Result<()> {
-    write!(writer, r#"{{"meta":{{"semver":"3.0.0"}},"targets":["#)?;
-    for (i, target) in targets.iter().enumerate() {
-        if i != 0 {
-            write!(writer, ",")?;
-        }
-        target.serialize(writer)?;
-    }
-    write!(writer, "]}}")
 }
