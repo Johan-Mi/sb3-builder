@@ -2,27 +2,21 @@ pub mod block;
 mod costume;
 mod finish;
 mod operand;
-mod uid;
 
 pub use costume::Costume;
 pub use operand::Operand;
 
 use block::{Block, Fields, Input};
-use std::{collections::HashMap, fmt::Write as _, io};
-use uid::Uid;
+use std::{fmt::Write as _, io};
 
 pub struct Project {
-    uid_generator: uid::Generator,
     targets: Vec<RealTarget>,
 }
 
 impl Default for Project {
     fn default() -> Self {
-        let stage = RealTarget::new("Stage".to_owned(), true);
-        Self {
-            uid_generator: uid::Generator::default(),
-            targets: vec![stage],
-        }
+        let targets = Vec::from([RealTarget::new("Stage".to_owned(), true)]);
+        Self { targets }
     }
 }
 
@@ -39,7 +33,7 @@ impl Project {
     fn target(&mut self, index: usize) -> Target<'_> {
         Target {
             inner: &mut self.targets[index],
-            uid_generator: &mut self.uid_generator,
+            next_parameter_id: 0,
             point: InsertionPoint {
                 parent: None,
                 place: Place::Next,
@@ -54,7 +48,7 @@ struct RealTarget {
     costumes: Vec<Costume>,
     variables: Vec<Variable>,
     lists: Vec<List>,
-    blocks: HashMap<Uid, block::Block>,
+    blocks: Vec<block::Block>,
     comments: Vec<Comment>,
 }
 
@@ -88,11 +82,11 @@ impl RealTarget {
             list.serialize(writer)?;
         }
         write!(writer, r#"}},"blocks":{{"#)?;
-        for (i, (id, block)) in self.blocks.iter().enumerate() {
+        for (i, block) in self.blocks.iter().enumerate() {
             if i != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, "{id}:")?;
+            write!(writer, "{}:", block::Id(i))?;
             block.serialize(writer)?;
         }
         write!(writer, r#"}},"comments":{{"#)?;
@@ -108,14 +102,14 @@ impl RealTarget {
 }
 
 impl RealTarget {
-    fn new(name: String, is_stage: bool) -> Self {
+    const fn new(name: String, is_stage: bool) -> Self {
         Self {
             name,
             is_stage,
             costumes: Vec::new(),
             variables: Vec::new(),
             lists: Vec::new(),
-            blocks: HashMap::new(),
+            blocks: Vec::new(),
             comments: Vec::new(),
         }
     }
@@ -137,7 +131,7 @@ impl Comment {
 
 pub struct Target<'a> {
     inner: &'a mut RealTarget,
-    uid_generator: &'a mut uid::Generator,
+    next_parameter_id: usize,
     point: InsertionPoint,
 }
 
@@ -174,10 +168,10 @@ impl Target<'_> {
         name: String,
         parameters: Vec<Parameter>,
     ) -> (CustomBlock, InsertionPoint) {
-        let param_ids =
-            std::iter::repeat_with(|| &*self.uid_generator.new_uid().raw().to_string().leak())
-                .take(parameters.len())
-                .collect::<Vec<_>>();
+        let param_ids = (self.next_parameter_id..self.next_parameter_id + parameters.len())
+            .map(|id| &*id.to_string().leak())
+            .collect::<Vec<_>>();
+        self.next_parameter_id += parameters.len();
 
         let mut argumentnames = "[".to_owned();
         for (i, param) in parameters.iter().enumerate() {
@@ -232,7 +226,7 @@ impl Target<'_> {
             )
             .collect();
 
-        let definition = self.uid_generator.new_uid();
+        let definition = block::Id(self.inner.blocks.len() + 1);
         let prototype = self.insert(Block {
             opcode: "procedures_prototype",
             parent: Some(definition),
@@ -246,8 +240,7 @@ impl Target<'_> {
             })),
         });
 
-        self.inner.blocks.insert(
-            definition,
+        self.inner.blocks.push(
             block::Stacking {
                 opcode: "procedures_definition",
                 inputs: Vec::from([("custom_block", Input::Prototype(prototype))]),
@@ -306,8 +299,8 @@ impl Target<'_> {
     }
 
     pub fn start_script(&mut self, hat: block::Hat) {
-        let id = self.uid_generator.new_uid();
-        self.inner.blocks.insert(id, hat.into());
+        let id = block::Id(self.inner.blocks.len());
+        self.inner.blocks.push(hat.into());
         self.point = InsertionPoint {
             parent: Some(id),
             place: Place::Next,
@@ -637,30 +630,22 @@ impl Target<'_> {
         Operand(Input::Substack(self.insert(block)))
     }
 
-    fn insert(&mut self, block: Block) -> Uid {
-        let id = self.uid_generator.new_uid();
+    fn insert(&mut self, block: Block) -> block::Id {
+        let id = block::Id(self.inner.blocks.len());
         for (_, input) in &block.inputs {
             if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) = input {
-                self.inner
-                    .blocks
-                    .get_mut(operand_block_id)
-                    .expect("operand block does not exist")
-                    .parent = Some(id);
+                self.inner.blocks[operand_block_id.0].parent = Some(id);
             }
         }
-        self.inner.blocks.insert(id, block);
+        self.inner.blocks.push(block);
         id
     }
 
-    fn set_next(&mut self, next: Uid) {
+    fn set_next(&mut self, next: block::Id) {
         let Some(parent) = self.point.parent else {
             return;
         };
-        let parent = self
-            .inner
-            .blocks
-            .get_mut(&parent)
-            .expect("parent block does not exist");
+        let parent = &mut self.inner.blocks[parent.0];
         match self.point.place {
             Place::Next => parent.next = Some(next),
             Place::Substack1 => parent.inputs.push(("SUBSTACK", Input::Substack(next))),
@@ -670,7 +655,7 @@ impl Target<'_> {
 }
 
 pub struct InsertionPoint {
-    parent: Option<Uid>,
+    parent: Option<block::Id>,
     place: Place,
 }
 

@@ -1,10 +1,10 @@
-use crate::{uid::Uid, ListRef, Mutation, Operand, VariableRef};
-use std::io;
+use crate::{ListRef, Mutation, Operand, VariableRef};
+use std::{fmt, io};
 
 pub(crate) struct Block {
     pub(crate) opcode: &'static str,
-    pub(crate) parent: Option<Uid>,
-    pub(crate) next: Option<Uid>,
+    pub(crate) parent: Option<Id>,
+    pub(crate) next: Option<Id>,
     pub(crate) inputs: Vec<(&'static str, Input)>,
     pub(crate) fields: Option<Fields>,
     pub(crate) mutation: Option<Box<Mutation>>,
@@ -413,12 +413,12 @@ pub fn wait(seconds: Operand) -> Stacking {
 }
 
 pub(crate) enum Input {
-    Substack(Uid),
+    Substack(Id),
     Number(f64),
     String(String),
     Variable(VariableRef),
     List(ListRef),
-    Prototype(Uid),
+    Prototype(Id),
 }
 
 impl Input {
@@ -470,5 +470,14 @@ impl Fields {
             Self::StopThisScript => write!(writer, r#"{{"STOP_OPTION":["this script",null]}}"#),
             Self::CloneSelf => write!(writer, r#"{{"CLONE_OPTION":["_myself_",null]}}"#),
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Id(pub usize);
+
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#""b{}""#, self.0)
     }
 }
