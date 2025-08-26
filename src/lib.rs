@@ -269,22 +269,20 @@ impl Target<'_> {
     }
 
     pub fn use_custom_block(&mut self, block: &CustomBlock, arguments: Vec<Operand>) {
-        let inputs = block
-            .param_ids
-            .iter()
-            .copied()
-            .zip(arguments.into_iter().map(|arg| arg.0))
-            .collect();
+        let inputs = std::iter::zip(
+            block.param_ids.iter().copied(),
+            arguments.into_iter().map(|arg| arg.0),
+        )
+        .collect::<Vec<_>>();
 
-        let block = Block {
+        let id = self.insert(Block {
             opcode: "procedures_call",
             parent: self.point.parent,
             next: None,
             inputs,
             fields: None,
             mutation: Some(Box::new(block.mutation.clone())),
-        };
-        let id = self.insert(block);
+        });
         self.set_next(id);
         self.point = InsertionPoint {
             parent: Some(id),
