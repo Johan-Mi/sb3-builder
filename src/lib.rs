@@ -1,9 +1,7 @@
 pub mod block;
 mod costume;
-mod operand;
 
 pub use costume::Costume;
-pub use operand::Operand;
 
 use block::{Block, Fields, Input};
 use std::{
@@ -794,5 +792,31 @@ impl Mutation {
             write!(writer, r#","argumentdefaults":{argumentdefaults:?}"#)?;
         }
         write!(writer, "}}")
+    }
+}
+
+pub struct Operand(Input);
+
+impl From<f64> for Operand {
+    fn from(value: f64) -> Self {
+        Self(Input::Number(value))
+    }
+}
+
+impl From<String> for Operand {
+    fn from(value: String) -> Self {
+        Self(Input::String(value))
+    }
+}
+
+impl From<VariableRef> for Operand {
+    fn from(value: VariableRef) -> Self {
+        Self(Input::Variable(value))
+    }
+}
+
+impl From<ListRef> for Operand {
+    fn from(value: ListRef) -> Self {
+        Self(Input::List(value))
     }
 }
