@@ -1,6 +1,6 @@
 use std::{
     fs,
-    io::{self, Seek, Write},
+    io::{self, Write},
     path::Path,
 };
 
@@ -50,10 +50,18 @@ impl Costume {
 
     pub(crate) fn add_to_archive(
         &self,
-        zip: &mut zip::ZipWriter<impl Write + Seek>,
-    ) -> zip::result::ZipResult<()> {
-        zip.start_file(&self.md5ext, zip::write::FileOptions::default())?;
-        zip.write_all(&self.content)?;
+        archive: &mut rawzip::ZipArchiveWriter<impl io::Write>,
+    ) -> Result<(), rawzip::Error> {
+        let (mut entry, config) = archive
+            .new_file(&self.md5ext)
+            .compression_method(rawzip::CompressionMethod::Deflate)
+            .start()?;
+        let encoder =
+            flate2::write::DeflateEncoder::new(&mut entry, flate2::Compression::default());
+        let mut file = config.wrap(encoder);
+        file.write_all(&self.content)?;
+        let (_, descriptor) = file.finish()?;
+        let _: u64 = entry.finish(descriptor)?;
         Ok(())
     }
 }

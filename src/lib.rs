@@ -53,21 +53,33 @@ impl Project {
         self,
         writer: impl io::Write + io::Seek,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut zip = zip::ZipWriter::new(writer);
+        let mut archive = rawzip::ZipArchiveWriter::new(writer);
 
         for costume in self.targets.iter().flat_map(|target| &target.costumes) {
-            costume.add_to_archive(&mut zip)?;
+            costume.add_to_archive(&mut archive)?;
         }
 
-        zip.start_file("project.json", zip::write::FileOptions::default())?;
-        write!(zip, r#"{{"meta":{{"semver":"3.0.0"}},"targets":["#)?;
+        let (mut entry, config) = archive
+            .new_file("project.json")
+            .compression_method(rawzip::CompressionMethod::Deflate)
+            .start()?;
+        let encoder =
+            flate2::write::DeflateEncoder::new(&mut entry, flate2::Compression::default());
+        let mut file = config.wrap(encoder);
+
+        write!(file, r#"{{"meta":{{"semver":"3.0.0"}},"targets":["#)?;
         for (i, target) in self.targets.iter().enumerate() {
             if i != 0 {
-                write!(zip, ",")?;
+                write!(file, ",")?;
             }
-            target.serialize(&mut zip)?;
+            target.serialize(&mut file)?;
         }
-        write!(zip, "]}}")?;
+        write!(file, "]}}")?;
+
+        let (_, descriptor) = file.finish()?;
+        let _: u64 = entry.finish(descriptor)?;
+
+        _ = archive.finish()?;
 
         Ok(())
     }

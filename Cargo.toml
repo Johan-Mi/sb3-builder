@@ -19,5 +19,6 @@ clippy.todo = "deny"
 clippy.unwrap_used = "warn"
 
 [dependencies]
+flate2 = "1.1.2"
 md5 = { version = "0.7.0", default-features = false }
-zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
+rawzip = "0.4.0"
