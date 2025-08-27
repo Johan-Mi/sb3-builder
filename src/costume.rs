@@ -54,11 +54,9 @@ impl Costume {
     ) -> Result<(), rawzip::Error> {
         let (mut entry, config) = archive
             .new_file(&self.md5ext)
-            .compression_method(rawzip::CompressionMethod::Deflate)
+            .compression_method(rawzip::CompressionMethod::Store)
             .start()?;
-        let encoder =
-            flate2::write::DeflateEncoder::new(&mut entry, flate2::Compression::default());
-        let mut file = config.wrap(encoder);
+        let mut file = config.wrap(&mut entry);
         file.write_all(&self.content)?;
         let (_, descriptor) = file.finish()?;
         let _: u64 = entry.finish(descriptor)?;
