@@ -52,7 +52,7 @@ impl Block {
 }
 
 impl Block {
-    pub(crate) const fn symbol(opcode: &'static str) -> Self {
+    pub(crate) const fn new(opcode: &'static str) -> Self {
         Self {
             opcode,
             parent: None,
@@ -61,6 +61,16 @@ impl Block {
             fields: None,
             mutation: None,
         }
+    }
+
+    pub(crate) fn inputs(mut self, inputs: impl Into<Vec<(&'static str, Input)>>) -> Self {
+        self.inputs = inputs.into();
+        self
+    }
+
+    pub(crate) fn fields(mut self, fields: Fields) -> Self {
+        self.fields = Some(fields);
+        self
     }
 }
 

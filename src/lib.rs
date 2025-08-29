@@ -331,14 +331,7 @@ impl Target<'_> {
             ParameterKind::StringOrNumber => "argument_reporter_string_number",
             ParameterKind::Boolean => "argument_reporter_boolean",
         };
-        self.op(Block {
-            opcode,
-            parent: None,
-            next: None,
-            inputs: Vec::new(),
-            fields: Some(Fields::Value(param.name)),
-            mutation: None,
-        })
+        self.op(Block::new(opcode).fields(Fields::Value(param.name)))
     }
 
     pub fn start_script(&mut self, hat: block::Hat) {
@@ -443,211 +436,125 @@ impl Target<'_> {
         })
     }
 
-    fn binary_operation(
-        &mut self,
-        opcode: &'static str,
-        operands: [(&'static str, Input); 2],
-    ) -> Operand {
-        self.op(Block {
-            opcode,
-            parent: None,
-            next: None,
-            inputs: operands.into(),
-            fields: None,
-            mutation: None,
-        })
-    }
-
     pub fn add(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_add", [("NUM1", lhs.0), ("NUM2", rhs.0)])
+        self.op(Block::new("operator_add").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn sub(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_subtract", [("NUM1", lhs.0), ("NUM2", rhs.0)])
+        self.op(Block::new("operator_subtract").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn mul(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_multiply", [("NUM1", lhs.0), ("NUM2", rhs.0)])
+        self.op(Block::new("operator_multiply").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn div(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_divide", [("NUM1", lhs.0), ("NUM2", rhs.0)])
+        self.op(Block::new("operator_divide").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn modulo(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_mod", [("NUM1", lhs.0), ("NUM2", rhs.0)])
+        self.op(Block::new("operator_mod").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn lt(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_lt", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
+        self.op(Block::new("operator_lt").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation(
-            "operator_equals",
-            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
-        )
+        self.op(Block::new("operator_equal").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn gt(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_gt", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
+        self.op(Block::new("operator_gt").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn not(&mut self, operand: Operand) -> Operand {
-        self.op(Block {
-            opcode: "operator_not",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("OPERAND", operand.0)]),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::new("operator_not").inputs([("OPERAND", operand.0)]))
     }
 
     pub fn and(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_and", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
+        self.op(Block::new("operator_and").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn or(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_or", [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
+        self.op(Block::new("operator_or").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn x_position(&mut self) -> Operand {
-        self.op(Block::symbol("motion_xposition"))
+        self.op(Block::new("motion_xposition"))
     }
 
     pub fn y_position(&mut self) -> Operand {
-        self.op(Block::symbol("motion_yposition"))
+        self.op(Block::new("motion_yposition"))
     }
 
     pub fn timer(&mut self) -> Operand {
-        self.op(Block::symbol("sensing_timer"))
+        self.op(Block::new("sensing_timer"))
     }
 
     pub fn answer(&mut self) -> Operand {
-        self.op(Block::symbol("sensing_answer"))
+        self.op(Block::new("sensing_answer"))
     }
 
     pub fn item_of_list(&mut self, list: ListRef, index: Operand) -> Operand {
-        self.op(Block {
-            opcode: "data_itemoflist",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("INDEX", index.0)]),
-            fields: Some(Fields::List(list)),
-            mutation: None,
-        })
+        self.op(Block::new("data_itemoflist")
+            .inputs([("INDEX", index.0)])
+            .fields(Fields::List(list)))
     }
 
     pub fn item_num_of_list(&mut self, list: ListRef, item: Operand) -> Operand {
-        self.op(Block {
-            opcode: "data_itemnumoflist",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("ITEM", item.0)]),
-            fields: Some(Fields::List(list)),
-            mutation: None,
-        })
+        self.op(Block::new("data_itemnumoflist")
+            .inputs([("ITEM", item.0)])
+            .fields(Fields::List(list)))
     }
 
     pub fn length(&mut self, string: Operand) -> Operand {
-        self.op(Block {
-            opcode: "operator_length",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("STRING", string.0)]),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::new("operator_length").inputs([("STRING", string.0)]))
     }
 
     pub fn length_of_list(&mut self, list: ListRef) -> Operand {
-        self.op(Block {
-            opcode: "data_lengthoflist",
-            parent: None,
-            next: None,
-            inputs: Vec::new(),
-            fields: Some(Fields::List(list)),
-            mutation: None,
-        })
+        self.op(Block::new("data_lengthoflist").fields(Fields::List(list)))
     }
 
     pub fn letter_of(&mut self, string: Operand, index: Operand) -> Operand {
-        self.op(Block {
-            opcode: "operator_letter_of",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("STRING", string.0), ("LETTER", index.0)]),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::new("operator_letter_of").inputs([("STRING", string.0), ("LETTER", index.0)]))
     }
 
     pub fn list_contains_item(&mut self, list: ListRef, item: Operand) -> Operand {
-        self.op(Block {
-            opcode: "data_listcontainsitem",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("ITEM", item.0)]),
-            fields: Some(Fields::List(list)),
-            mutation: None,
-        })
+        self.op(Block::new("data_listcontainsitem")
+            .inputs([("ITEM", item.0)])
+            .fields(Fields::List(list)))
     }
 
     pub fn join(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.binary_operation("operator_join", [("STRING1", lhs.0), ("STRING2", rhs.0)])
+        self.op(Block::new("operator_join").inputs([("STRING1", lhs.0), ("STRING2", rhs.0)]))
     }
 
     pub fn mathop(&mut self, operator: &'static str, num: Operand) -> Operand {
-        self.op(Block {
-            opcode: "operator_mathop",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("NUM", num.0)]),
-            fields: Some(Fields::Operator(operator)),
-            mutation: None,
-        })
+        self.op(Block::new("operator_mathop")
+            .inputs([("NUM", num.0)])
+            .fields(Fields::Operator(operator)))
     }
 
     pub fn mouse_x(&mut self) -> Operand {
-        self.op(Block::symbol("sensing_mousex"))
+        self.op(Block::new("sensing_mousex"))
     }
 
     pub fn mouse_y(&mut self) -> Operand {
-        self.op(Block::symbol("sensing_mousey"))
+        self.op(Block::new("sensing_mousey"))
     }
 
     pub fn key_is_pressed(&mut self, key: Operand) -> Operand {
-        self.op(Block {
-            opcode: "sensing_keypressed",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("KEY_OPTION", key.0)]),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::new("sensing_keypressed").inputs([("KEY_OPTION", key.0)]))
     }
 
     pub fn random(&mut self, from: Operand, to: Operand) -> Operand {
-        self.op(Block {
-            opcode: "operator_random",
-            parent: None,
-            next: None,
-            inputs: Vec::from([("FROM", from.0), ("TO", to.0)]),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::new("operator_random").inputs([("FROM", from.0), ("TO", to.0)]))
     }
 
     pub fn clone_self(&mut self) {
-        let menu = self.insert(Block {
-            opcode: "control_create_clone_of_menu",
-            parent: None,
-            next: None,
-            inputs: Vec::new(),
-            fields: Some(Fields::CloneSelf),
-            mutation: None,
-        });
+        let menu =
+            self.insert(Block::new("control_create_clone_of_menu").fields(Fields::CloneSelf));
         self.put(block::Stacking {
             opcode: "control_create_clone_of",
             inputs: Vec::from([("CLONE_OPTION", Input::Prototype(menu))]),
