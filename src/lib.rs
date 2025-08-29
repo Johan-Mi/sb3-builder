@@ -610,25 +610,11 @@ impl Target<'_> {
     }
 
     pub fn mouse_x(&mut self) -> Operand {
-        self.op(Block {
-            opcode: "sensing_mousex",
-            parent: None,
-            next: None,
-            inputs: Vec::new(),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::symbol("sensing_mousex"))
     }
 
     pub fn mouse_y(&mut self) -> Operand {
-        self.op(Block {
-            opcode: "sensing_mousey",
-            parent: None,
-            next: None,
-            inputs: Vec::new(),
-            fields: None,
-            mutation: None,
-        })
+        self.op(Block::symbol("sensing_mousey"))
     }
 
     pub fn key_is_pressed(&mut self, key: Operand) -> Operand {
