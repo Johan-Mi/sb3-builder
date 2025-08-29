@@ -49,9 +49,7 @@ impl Block {
         }
         write!(writer, "}}")
     }
-}
 
-impl Block {
     pub(crate) const fn new(opcode: &'static str) -> Self {
         Self {
             opcode,
