@@ -520,6 +520,11 @@ impl Target<'_> {
         self.op(Block::new("operator_letter_of").inputs([("STRING", string.0), ("LETTER", index.0)]))
     }
 
+    pub fn contains(&mut self, haystack: Operand, needle: Operand) -> Operand {
+        self.op(Block::new("operator_contains")
+            .inputs([("STRING1", haystack.0), ("STRING2", needle.0)]))
+    }
+
     pub fn list_contains_item(&mut self, list: ListRef, item: Operand) -> Operand {
         self.op(Block::new("data_listcontainsitem")
             .inputs([("ITEM", item.0)])
