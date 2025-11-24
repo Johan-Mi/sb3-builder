@@ -461,7 +461,7 @@ impl Target<'_> {
     }
 
     pub fn eq(&mut self, lhs: Operand, rhs: Operand) -> Operand {
-        self.op(Block::new("operator_equal").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(Block::new("operator_equals").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn gt(&mut self, lhs: Operand, rhs: Operand) -> Operand {
