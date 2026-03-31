@@ -1,4 +1,4 @@
-use crate::{ListRef, Mutation, Operand, VariableRef};
+use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
 use std::{fmt, io};
 
 pub(crate) struct Block {
@@ -11,7 +11,7 @@ pub(crate) struct Block {
 }
 
 impl Block {
-    pub fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+    pub fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(writer, r#"{{"opcode":{:?},"parent":"#, self.opcode)?;
         if let Some(parent) = self.parent {
             write!(writer, "{parent}")
@@ -32,13 +32,13 @@ impl Block {
                     write!(writer, ",")?;
                 }
                 write!(writer, "{name:?}:")?;
-                input.serialize(writer)?;
+                input.serialize(target, writer)?;
             }
             write!(writer, "}}")?;
         }
         if let Some(fields) = &self.fields {
             write!(writer, r#","fields":"#)?;
-            fields.serialize(writer)?;
+            fields.serialize(target, writer)?;
         }
         if let Some(mutation) = &self.mutation {
             write!(writer, r#","mutation":"#)?;
@@ -430,7 +430,7 @@ pub(crate) enum Input {
 }
 
 impl Input {
-    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+    fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         match *self {
             Self::Substack(uid) => write!(writer, "[2,{uid}]"),
             Self::Number(n) if n == f64::INFINITY => write!(writer, r#"[1,[4,"Infinity"]]"#),
@@ -438,10 +438,14 @@ impl Input {
             Self::Number(n) if n.is_nan() => write!(writer, r#"[1,[4,"NaN"]]"#),
             Self::Number(n) => write!(writer, r"[1,[4,{n}]]"),
             Self::String(ref s) => write!(writer, r"[1,[10,{s:?}]]"),
-            Self::Variable(VariableRef { ref name, id }) => {
-                write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#)
+            Self::Variable(VariableRef { name_index, id }) => {
+                let name = &target.variables[name_index].name;
+                write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#,)
             }
-            Self::List(ListRef { ref name, id }) => write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#),
+            Self::List(ListRef { name_index, id }) => {
+                let name = &target.variables[name_index].name;
+                write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#,)
+            }
             Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
         }
     }
@@ -460,13 +464,15 @@ pub(crate) enum Fields {
 }
 
 impl Fields {
-    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+    fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
-            Self::Variable(VariableRef { id, name }) => {
-                write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#)
+            Self::Variable(VariableRef { name_index, id }) => {
+                let name = &target.variables[*name_index].name;
+                write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#,)
             }
-            Self::List(ListRef { id, name }) => {
-                write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#)
+            Self::List(ListRef { name_index, id }) => {
+                let name = &target.variables[*name_index].name;
+                write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#,)
             }
             Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
             Self::Operator(operator) => write!(writer, r#"{{"OPERATOR":[{operator:?},null]}}"#),

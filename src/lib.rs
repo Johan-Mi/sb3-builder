@@ -130,7 +130,7 @@ impl RealTarget {
                 write!(writer, ",")?;
             }
             write!(writer, "{}:", block::Id(i))?;
-            block.serialize(writer)?;
+            block.serialize(self, writer)?;
         }
         write!(writer, r#"}},"comments":{{"#)?;
         for (i, comment) in self.comments.iter().enumerate() {
@@ -189,16 +189,16 @@ impl Target<'_> {
 
     pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
         let id = self.inner.variables.len();
-        let name = (&*variable.name).into();
+        let name_index = self.inner.variables.len();
         self.inner.variables.push(variable);
-        VariableRef { name, id }
+        VariableRef { name_index, id }
     }
 
     pub fn add_list(&mut self, list: List) -> ListRef {
         let id = self.inner.variables.len();
-        let name = (&*list.name).into();
+        let name_index = self.inner.variables.len();
         self.inner.lists.push(list);
-        ListRef { name, id }
+        ListRef { name_index, id }
     }
 
     pub const fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
@@ -633,9 +633,9 @@ impl Variable {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct VariableRef {
-    name: Box<str>,
+    name_index: usize,
     id: usize,
 }
 
@@ -657,9 +657,9 @@ impl List {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct ListRef {
-    name: Box<str>,
+    name_index: usize,
     id: usize,
 }
 
