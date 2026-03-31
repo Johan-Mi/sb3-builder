@@ -443,7 +443,7 @@ impl Input {
                 write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#,)
             }
             Self::List(ListRef { name_index, id }) => {
-                let name = &target.variables[name_index].name;
+                let name = &target.lists[name_index].name;
                 write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#,)
             }
             Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
@@ -471,7 +471,7 @@ impl Fields {
                 write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#,)
             }
             Self::List(ListRef { name_index, id }) => {
-                let name = &target.variables[*name_index].name;
+                let name = &target.lists[*name_index].name;
                 write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#,)
             }
             Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
