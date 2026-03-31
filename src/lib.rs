@@ -189,16 +189,14 @@ impl Target<'_> {
 
     pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
         let id = self.inner.variables.len();
-        let name_index = self.inner.variables.len();
         self.inner.variables.push(variable);
-        VariableRef { name_index, id }
+        VariableRef(id)
     }
 
     pub fn add_list(&mut self, list: List) -> ListRef {
-        let id = self.inner.variables.len();
-        let name_index = self.inner.variables.len();
+        let id = self.inner.lists.len();
         self.inner.lists.push(list);
-        ListRef { name_index, id }
+        ListRef(id)
     }
 
     pub const fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
@@ -634,10 +632,7 @@ impl Variable {
 }
 
 #[derive(Clone, Copy)]
-pub struct VariableRef {
-    name_index: usize,
-    id: usize,
-}
+pub struct VariableRef(usize);
 
 pub struct List {
     pub name: String,
@@ -658,10 +653,7 @@ impl List {
 }
 
 #[derive(Clone, Copy)]
-pub struct ListRef {
-    name_index: usize,
-    id: usize,
-}
+pub struct ListRef(usize);
 
 #[derive(Clone)]
 pub struct Parameter {

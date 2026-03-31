@@ -438,12 +438,12 @@ impl Input {
             Self::Number(n) if n.is_nan() => write!(writer, r#"[1,[4,"NaN"]]"#),
             Self::Number(n) => write!(writer, r"[1,[4,{n}]]"),
             Self::String(ref s) => write!(writer, r"[1,[10,{s:?}]]"),
-            Self::Variable(VariableRef { name_index, id }) => {
-                let name = &target.variables[name_index].name;
+            Self::Variable(VariableRef(id)) => {
+                let name = &target.variables[id].name;
                 write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#,)
             }
-            Self::List(ListRef { name_index, id }) => {
-                let name = &target.lists[name_index].name;
+            Self::List(ListRef(id)) => {
+                let name = &target.lists[id].name;
                 write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#,)
             }
             Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
@@ -466,12 +466,12 @@ pub(crate) enum Fields {
 impl Fields {
     fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
-            Self::Variable(VariableRef { name_index, id }) => {
-                let name = &target.variables[*name_index].name;
+            Self::Variable(VariableRef(id)) => {
+                let name = &target.variables[*id].name;
                 write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#,)
             }
-            Self::List(ListRef { name_index, id }) => {
-                let name = &target.lists[*name_index].name;
+            Self::List(ListRef(id)) => {
+                let name = &target.lists[*id].name;
                 write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#,)
             }
             Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
