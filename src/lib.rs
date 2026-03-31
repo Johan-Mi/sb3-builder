@@ -172,8 +172,8 @@ impl Comment {
     }
 }
 
-pub struct Target<'a> {
-    inner: &'a mut RealTarget,
+pub struct Target<'project> {
+    inner: &'project mut RealTarget,
     next_parameter_id: usize,
     point: InsertionPoint,
 }
