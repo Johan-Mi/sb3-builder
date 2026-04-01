@@ -9,28 +9,28 @@ use std::{
     io::{self, Write as _},
 };
 
-pub struct Project {
-    targets: Vec<RealTarget>,
+pub struct Project<'strings> {
+    targets: Vec<RealTarget<'strings>>,
 }
 
-impl Default for Project {
+impl Default for Project<'_> {
     fn default() -> Self {
-        let targets = Vec::from([RealTarget::new("Stage".to_owned(), true)]);
+        let targets = Vec::from([RealTarget::new("Stage", true)]);
         Self { targets }
     }
 }
 
-impl Project {
-    pub fn stage(&mut self) -> Target<'_> {
+impl<'strings> Project<'strings> {
+    pub fn stage(&mut self) -> Target<'strings, '_> {
         self.target(0)
     }
 
-    pub fn add_sprite(&mut self, name: String) -> Target<'_> {
+    pub fn add_sprite(&mut self, name: &'strings str) -> Target<'strings, '_> {
         self.targets.push(RealTarget::new(name, false));
         self.target(self.targets.len() - 1)
     }
 
-    fn target(&mut self, index: usize) -> Target<'_> {
+    fn target(&mut self, index: usize) -> Target<'strings, '_> {
         Target {
             inner: &mut self.targets[index],
             next_parameter_id: 0,
@@ -85,8 +85,8 @@ impl Project {
     }
 }
 
-struct RealTarget {
-    name: String,
+struct RealTarget<'strings> {
+    name: &'strings str,
     is_stage: bool,
     costumes: Vec<Costume>,
     variables: Vec<Variable>,
@@ -95,7 +95,7 @@ struct RealTarget {
     comments: Vec<Comment>,
 }
 
-impl RealTarget {
+impl RealTarget<'_> {
     fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(
             writer,
@@ -144,8 +144,8 @@ impl RealTarget {
     }
 }
 
-impl RealTarget {
-    const fn new(name: String, is_stage: bool) -> Self {
+impl<'strings> RealTarget<'strings> {
+    const fn new(name: &'strings str, is_stage: bool) -> Self {
         Self {
             name,
             is_stage,
@@ -172,13 +172,13 @@ impl Comment {
     }
 }
 
-pub struct Target<'project> {
-    inner: &'project mut RealTarget,
+pub struct Target<'strings, 'project> {
+    inner: &'project mut RealTarget<'strings>,
     next_parameter_id: usize,
     point: InsertionPoint,
 }
 
-impl Target<'_> {
+impl Target<'_, '_> {
     pub fn add_comment(&mut self, text: String) {
         self.inner.comments.push(Comment { text });
     }
