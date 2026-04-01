@@ -1,16 +1,16 @@
 use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
 use std::{fmt, io};
 
-pub(crate) struct Block {
+pub(crate) struct Block<'strings> {
     pub(crate) opcode: &'static str,
     pub(crate) parent: Option<Id>,
     pub(crate) next: Option<Id>,
-    pub(crate) inputs: Vec<(&'static str, Input)>,
+    pub(crate) inputs: Vec<(&'static str, Input<'strings>)>,
     pub(crate) fields: Option<Fields>,
     pub(crate) mutation: Option<Box<Mutation>>,
 }
 
-impl Block {
+impl<'strings> Block<'strings> {
     pub fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(writer, r#"{{"opcode":{:?},"parent":"#, self.opcode)?;
         if let Some(parent) = self.parent {
@@ -61,7 +61,10 @@ impl Block {
         }
     }
 
-    pub(crate) fn inputs(mut self, inputs: impl Into<Vec<(&'static str, Input)>>) -> Self {
+    pub(crate) fn inputs(
+        mut self,
+        inputs: impl Into<Vec<(&'static str, Input<'strings>)>>,
+    ) -> Self {
         self.inputs = inputs.into();
         self
     }
@@ -77,7 +80,7 @@ pub struct Hat {
     fields: Option<Fields>,
 }
 
-impl From<Hat> for Block {
+impl From<Hat> for Block<'_> {
     fn from(hat: Hat) -> Self {
         Self {
             opcode: hat.opcode,
@@ -90,14 +93,14 @@ impl From<Hat> for Block {
     }
 }
 
-pub struct Stacking {
+pub struct Stacking<'strings> {
     pub(crate) opcode: &'static str,
-    pub(crate) inputs: Vec<(&'static str, Input)>,
+    pub(crate) inputs: Vec<(&'static str, Input<'strings>)>,
     pub(crate) fields: Option<Fields>,
 }
 
-impl From<Stacking> for Block {
-    fn from(stacking: Stacking) -> Self {
+impl<'strings> From<Stacking<'strings>> for Block<'strings> {
+    fn from(stacking: Stacking<'strings>) -> Self {
         Self {
             opcode: stacking.opcode,
             parent: None,
@@ -109,7 +112,7 @@ impl From<Stacking> for Block {
     }
 }
 
-impl Stacking {
+impl Stacking<'_> {
     pub(crate) const fn new(opcode: &'static str) -> Self {
         Self {
             opcode,
@@ -206,7 +209,7 @@ pub fn change_y(dy: Operand) -> Stacking {
 }
 
 #[must_use]
-pub const fn delete_all_of_list(list: ListRef) -> Stacking {
+pub const fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
     Stacking {
         opcode: "data_deletealloflist",
         inputs: Vec::new(),
@@ -224,30 +227,30 @@ pub fn delete_of_list(list: ListRef, index: Operand) -> Stacking {
 }
 
 #[must_use]
-pub const fn erase_all() -> Stacking {
+pub const fn erase_all() -> Stacking<'static> {
     Stacking::new("pen_clear")
 }
 
 #[must_use]
-pub fn go_to_back_layer() -> Stacking {
+pub fn go_to_back_layer() -> Stacking<'static> {
     Stacking {
         opcode: "looks_gotofrontback",
-        inputs: Vec::from([("FRONT_BACK", Input::String("back".to_owned()))]),
+        inputs: Vec::from([("FRONT_BACK", Input::String("back"))]),
         fields: None,
     }
 }
 
 #[must_use]
-pub fn go_to_front_layer() -> Stacking {
+pub fn go_to_front_layer() -> Stacking<'static> {
     Stacking {
         opcode: "looks_gotofrontback",
-        inputs: Vec::from([("FRONT_BACK", Input::String("front".to_owned()))]),
+        inputs: Vec::from([("FRONT_BACK", Input::String("front"))]),
         fields: None,
     }
 }
 
 #[must_use]
-pub fn go_to_xy(x: Operand, y: Operand) -> Stacking {
+pub fn go_to_xy<'strings>(x: Operand<'strings>, y: Operand<'strings>) -> Stacking<'strings> {
     Stacking {
         opcode: "motion_gotoxy",
         inputs: Vec::from([("X", x.0), ("Y", y.0)]),
@@ -256,12 +259,16 @@ pub fn go_to_xy(x: Operand, y: Operand) -> Stacking {
 }
 
 #[must_use]
-pub const fn hide() -> Stacking {
+pub const fn hide() -> Stacking<'static> {
     Stacking::new("looks_hide")
 }
 
 #[must_use]
-pub fn insert_at_list(list: ListRef, item: Operand, index: Operand) -> Stacking {
+pub fn insert_at_list<'strings>(
+    list: ListRef,
+    item: Operand<'strings>,
+    index: Operand<'strings>,
+) -> Stacking<'strings> {
     Stacking {
         opcode: "data_insertatlist",
         inputs: Vec::from([("ITEM", item.0), ("INDEX", index.0)]),
@@ -279,17 +286,21 @@ pub fn move_steps(steps: Operand) -> Stacking {
 }
 
 #[must_use]
-pub const fn pen_down() -> Stacking {
+pub const fn pen_down() -> Stacking<'static> {
     Stacking::new("pen_penDown")
 }
 
 #[must_use]
-pub const fn pen_up() -> Stacking {
+pub const fn pen_up() -> Stacking<'static> {
     Stacking::new("pen_penUp")
 }
 
 #[must_use]
-pub fn replace(list: ListRef, index: Operand, item: Operand) -> Stacking {
+pub fn replace<'strings>(
+    list: ListRef,
+    index: Operand<'strings>,
+    item: Operand<'strings>,
+) -> Stacking<'strings> {
     Stacking {
         opcode: "data_replaceitemoflist",
         inputs: Vec::from([("INDEX", index.0), ("ITEM", item.0)]),
@@ -298,7 +309,7 @@ pub fn replace(list: ListRef, index: Operand, item: Operand) -> Stacking {
 }
 
 #[must_use]
-pub const fn reset_timer() -> Stacking {
+pub const fn reset_timer() -> Stacking<'static> {
     Stacking::new("sensing_resettimer")
 }
 
@@ -312,7 +323,10 @@ pub fn say(message: Operand) -> Stacking {
 }
 
 #[must_use]
-pub fn say_for_seconds(seconds: Operand, message: Operand) -> Stacking {
+pub fn say_for_seconds<'strings>(
+    seconds: Operand<'strings>,
+    message: Operand<'strings>,
+) -> Stacking<'strings> {
     Stacking {
         opcode: "looks_say",
         inputs: Vec::from([("SECS", seconds.0), ("MESSAGE", message.0)]),
@@ -384,17 +398,17 @@ pub fn set_y(y: Operand) -> Stacking {
 }
 
 #[must_use]
-pub const fn show() -> Stacking {
+pub const fn show() -> Stacking<'static> {
     Stacking::new("looks_show")
 }
 
 #[must_use]
-pub const fn stamp() -> Stacking {
+pub const fn stamp() -> Stacking<'static> {
     Stacking::new("pen_stamp")
 }
 
 #[must_use]
-pub const fn stop_all() -> Stacking {
+pub const fn stop_all() -> Stacking<'static> {
     Stacking {
         opcode: "control_stop",
         inputs: Vec::new(),
@@ -403,7 +417,7 @@ pub const fn stop_all() -> Stacking {
 }
 
 #[must_use]
-pub const fn stop_this_script() -> Stacking {
+pub const fn stop_this_script() -> Stacking<'static> {
     Stacking {
         opcode: "control_stop",
         inputs: Vec::new(),
@@ -420,16 +434,16 @@ pub fn wait(seconds: Operand) -> Stacking {
     }
 }
 
-pub(crate) enum Input {
+pub(crate) enum Input<'strings> {
     Substack(Id),
     Number(f64),
-    String(String),
+    String(&'strings str),
     Variable(VariableRef),
     List(ListRef),
     Prototype(Id),
 }
 
-impl Input {
+impl Input<'_> {
     fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         match *self {
             Self::Substack(uid) => write!(writer, "[2,{uid}]"),
@@ -437,7 +451,7 @@ impl Input {
             Self::Number(n) if n == f64::NEG_INFINITY => write!(writer, r#"[1,[4,"-Infinity"]]"#),
             Self::Number(n) if n.is_nan() => write!(writer, r#"[1,[4,"NaN"]]"#),
             Self::Number(n) => write!(writer, r"[1,[4,{n}]]"),
-            Self::String(ref s) => write!(writer, r"[1,[10,{s:?}]]"),
+            Self::String(s) => write!(writer, r"[1,[10,{s:?}]]"),
             Self::Variable(VariableRef(id)) => {
                 let name = &target.variables[id].name;
                 write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#,)
