@@ -89,8 +89,8 @@ struct RealTarget<'strings> {
     name: &'strings str,
     is_stage: bool,
     costumes: Vec<Costume>,
-    variables: Vec<Variable>,
-    lists: Vec<List>,
+    variables: Vec<Variable<'strings>>,
+    lists: Vec<List<'strings>>,
     blocks: Vec<block::Block<'strings>>,
     comments: Vec<Comment>,
 }
@@ -187,13 +187,13 @@ impl<'strings> Target<'strings, '_> {
         self.inner.costumes.push(costume);
     }
 
-    pub fn add_variable(&mut self, variable: Variable) -> VariableRef {
+    pub fn add_variable(&mut self, variable: Variable<'strings>) -> VariableRef {
         let id = self.inner.variables.len();
         self.inner.variables.push(variable);
         VariableRef(id)
     }
 
-    pub fn add_list(&mut self, list: List) -> ListRef {
+    pub fn add_list(&mut self, list: List<'strings>) -> ListRef {
         let id = self.inner.lists.len();
         self.inner.lists.push(list);
         ListRef(id)
@@ -620,12 +620,12 @@ enum Place {
     Substack2,
 }
 
-pub enum Constant {
-    String(String),
+pub enum Constant<'strings> {
+    String(&'strings str),
     Number(f64),
 }
 
-impl Constant {
+impl Constant<'_> {
     fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
             Self::String(s) => write!(writer, "{s:?}"),
@@ -634,12 +634,12 @@ impl Constant {
     }
 }
 
-pub struct Variable {
+pub struct Variable<'strings> {
     pub name: String,
-    pub value: Constant,
+    pub value: Constant<'strings>,
 }
 
-impl Variable {
+impl Variable<'_> {
     fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(writer, "[{:?},", self.name)?;
         self.value.serialize(writer)?;
@@ -650,12 +650,12 @@ impl Variable {
 #[derive(Clone, Copy)]
 pub struct VariableRef(usize);
 
-pub struct List {
+pub struct List<'strings> {
     pub name: String,
-    pub items: Vec<Constant>,
+    pub items: Vec<Constant<'strings>>,
 }
 
-impl List {
+impl List<'_> {
     fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(writer, "[{:?}, [", self.name)?;
         for (i, item) in self.items.iter().enumerate() {
