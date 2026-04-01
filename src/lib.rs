@@ -88,7 +88,7 @@ impl<'strings> Project<'strings> {
 struct RealTarget<'strings> {
     name: &'strings str,
     is_stage: bool,
-    costumes: Vec<Costume>,
+    costumes: Vec<Costume<'strings>>,
     variables: Vec<Variable<'strings>>,
     lists: Vec<List<'strings>>,
     blocks: Vec<block::Block<'strings>>,
@@ -183,7 +183,7 @@ impl<'strings> Target<'strings, '_> {
         self.inner.comments.push(Comment { text });
     }
 
-    pub fn add_costume(&mut self, costume: Costume) {
+    pub fn add_costume(&mut self, costume: Costume<'strings>) {
         self.inner.costumes.push(costume);
     }
 

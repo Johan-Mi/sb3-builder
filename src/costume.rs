@@ -4,15 +4,15 @@ use std::{
     path::Path,
 };
 
-pub struct Costume {
-    name: String,
+pub struct Costume<'strings> {
+    name: &'strings str,
     data_format: String,
     asset_id: String,
     md5ext: String,
     content: Vec<u8>,
 }
 
-impl Costume {
+impl Costume<'_> {
     pub(crate) fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(
             writer,
@@ -22,14 +22,14 @@ impl Costume {
     }
 }
 
-impl Costume {
+impl<'strings> Costume<'strings> {
     /// Creates a [`Costume`] with the image file at the given [`Path`].
     ///
     /// # Errors
     ///
     /// This function will return an error if the path has no extension
     /// or it fails to read the file.
-    pub fn from_file(name: String, path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_file(name: &'strings str, path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let data_format = path
             .extension()
             .and_then(std::ffi::OsStr::to_str)
