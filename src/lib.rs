@@ -332,7 +332,7 @@ impl<'strings> Target<'strings, '_> {
         self.op(Block::new(opcode).fields(Fields::Value(param.name)))
     }
 
-    pub fn start_script(&mut self, hat: block::Hat) {
+    pub fn start_script(&mut self, hat: block::Hat<'strings>) {
         let id = block::Id(self.inner.blocks.len());
         self.inner.blocks.push(hat.into());
         self.point = InsertionPoint {

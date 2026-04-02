@@ -6,7 +6,7 @@ pub(crate) struct Block<'strings> {
     pub(crate) parent: Option<Id>,
     pub(crate) next: Option<Id>,
     pub(crate) inputs: Vec<(&'static str, Input<'strings>)>,
-    pub(crate) fields: Option<Fields>,
+    pub(crate) fields: Option<Fields<'strings>>,
     pub(crate) mutation: Option<Box<Mutation>>,
 }
 
@@ -69,19 +69,19 @@ impl<'strings> Block<'strings> {
         self
     }
 
-    pub(crate) fn fields(mut self, fields: Fields) -> Self {
+    pub(crate) fn fields(mut self, fields: Fields<'strings>) -> Self {
         self.fields = Some(fields);
         self
     }
 }
 
-pub struct Hat {
+pub struct Hat<'strings> {
     opcode: &'static str,
-    fields: Option<Fields>,
+    fields: Option<Fields<'strings>>,
 }
 
-impl From<Hat> for Block<'_> {
-    fn from(hat: Hat) -> Self {
+impl<'strings> From<Hat<'strings>> for Block<'strings> {
+    fn from(hat: Hat<'strings>) -> Self {
         Self {
             opcode: hat.opcode,
             parent: None,
@@ -96,7 +96,7 @@ impl From<Hat> for Block<'_> {
 pub struct Stacking<'strings> {
     pub(crate) opcode: &'static str,
     pub(crate) inputs: Vec<(&'static str, Input<'strings>)>,
-    pub(crate) fields: Option<Fields>,
+    pub(crate) fields: Option<Fields<'strings>>,
 }
 
 impl<'strings> From<Stacking<'strings>> for Block<'strings> {
@@ -123,7 +123,7 @@ impl Stacking<'_> {
 }
 
 #[must_use]
-pub const fn when_flag_clicked() -> Hat {
+pub const fn when_flag_clicked() -> Hat<'static> {
     Hat {
         opcode: "event_whenflagclicked",
         fields: None,
@@ -131,7 +131,7 @@ pub const fn when_flag_clicked() -> Hat {
 }
 
 #[must_use]
-pub const fn when_key_pressed(key: String) -> Hat {
+pub const fn when_key_pressed(key: &str) -> Hat<'_> {
     Hat {
         opcode: "event_whenkeypressed",
         fields: Some(Fields::KeyOption(key)),
@@ -139,7 +139,7 @@ pub const fn when_key_pressed(key: String) -> Hat {
 }
 
 #[must_use]
-pub const fn when_cloned() -> Hat {
+pub const fn when_cloned() -> Hat<'static> {
     Hat {
         opcode: "control_start_as_clone",
         fields: None,
@@ -147,7 +147,7 @@ pub const fn when_cloned() -> Hat {
 }
 
 #[must_use]
-pub const fn when_received(message: String) -> Hat {
+pub const fn when_received(message: &str) -> Hat<'_> {
     Hat {
         opcode: "event_whenbroadcastreceived",
         fields: Some(Fields::BroadcastOption(message)),
@@ -465,19 +465,19 @@ impl Input<'_> {
     }
 }
 
-pub(crate) enum Fields {
+pub(crate) enum Fields<'strings> {
     Variable(VariableRef),
     List(ListRef),
     Value(String),
     Operator(&'static str),
-    KeyOption(String),
-    BroadcastOption(String),
+    KeyOption(&'strings str),
+    BroadcastOption(&'strings str),
     StopAll,
     StopThisScript,
     CloneSelf,
 }
 
-impl Fields {
+impl Fields<'_> {
     fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         match self {
             Self::Variable(VariableRef(id)) => {
