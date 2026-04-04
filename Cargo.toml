@@ -9,7 +9,7 @@ keywords = ["utility", "encoding", "library", "scratch"]
 categories = ["encoding"]
 
 [lints]
-rust.unsafe_code = "deny"
+rust.unsafe_code = "forbid"
 rust.unused_results = "deny"
 clippy.cargo = { level = "warn", priority = -1 }
 clippy.let_underscore_untyped = "deny"
