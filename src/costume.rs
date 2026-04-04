@@ -6,9 +6,8 @@ use std::{
 
 pub struct Costume<'strings> {
     name: &'strings str,
-    data_format: String,
-    asset_id: String,
-    md5ext: String,
+    data_format: Box<str>,
+    digest: md5::Digest,
     content: Vec<u8>,
 }
 
@@ -16,8 +15,12 @@ impl Costume<'_> {
     pub(crate) fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
         write!(
             writer,
-            r#"{{"name":{:?},"dataFormat":{:?},"assetId":{:?},"md5ext":{:?}}}"#,
-            self.name, self.data_format, self.asset_id, self.md5ext
+            r#"{{"name":{:?},"dataFormat":{:?},"assetId":"{:x}","md5ext":"{:x}.{}"}}"#,
+            self.name,
+            self.data_format,
+            self.digest,
+            self.digest,
+            self.data_format.escape_debug()
         )
     }
 }
@@ -34,16 +37,13 @@ impl<'strings> Costume<'strings> {
             .extension()
             .and_then(std::ffi::OsStr::to_str)
             .ok_or("costume path must have an extension")?
-            .to_owned();
+            .into();
         let content = fs::read(path)?;
         let digest = md5::compute(&content);
-        let asset_id = format!("{digest:?}");
-        let md5ext = format!("{asset_id}.{data_format}");
         Ok(Self {
             name,
             data_format,
-            asset_id,
-            md5ext,
+            digest,
             content,
         })
     }
@@ -52,8 +52,9 @@ impl<'strings> Costume<'strings> {
         &self,
         archive: &mut rawzip::ZipArchiveWriter<impl io::Write>,
     ) -> Result<(), rawzip::Error> {
+        let file_name = format!("{:x}.{}", self.digest, self.data_format);
         let (mut entry, config) = archive
-            .new_file(&self.md5ext)
+            .new_file(&file_name)
             .compression_method(rawzip::CompressionMethod::Store)
             .start()?;
         let mut file = config.wrap(&mut entry);
