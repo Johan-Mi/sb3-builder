@@ -1,4 +1,4 @@
-use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
+use crate::{ListRef, Mutation, Operand, ParameterRef, RealTarget, VariableRef};
 use std::{fmt, io};
 
 pub(crate) struct Block<'strings> {
@@ -7,7 +7,7 @@ pub(crate) struct Block<'strings> {
     pub(crate) next: Option<Id>,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
     pub(crate) fields: Option<Fields<'strings>>,
-    pub(crate) mutation: Option<Box<Mutation>>,
+    pub(crate) mutation: Option<Mutation>,
 }
 
 impl<'strings> Block<'strings> {
@@ -51,7 +51,7 @@ impl<'strings> Block<'strings> {
         }
         if let Some(mutation) = &self.mutation {
             write!(writer, r#","mutation":"#)?;
-            mutation.serialize(writer)?;
+            mutation.serialize(target, writer)?;
         }
         if matches!(self.opcode, Opcode::control_create_clone_of_menu) {
             write!(writer, r#","shadow":true"#)?;
@@ -78,7 +78,7 @@ impl<'strings> Block<'strings> {
         self
     }
 
-    pub(crate) fn fields(mut self, fields: Fields<'strings>) -> Self {
+    pub(crate) const fn fields(mut self, fields: Fields<'strings>) -> Self {
         self.fields = Some(fields);
         self
     }
@@ -479,7 +479,7 @@ impl Input<'_> {
 pub(crate) enum Fields<'strings> {
     Variable(VariableRef),
     List(ListRef),
-    Value(String),
+    Value(ParameterRef),
     Operator(&'static str),
     KeyOption(&'strings str),
     BroadcastOption(&'strings str),
@@ -499,7 +499,10 @@ impl Fields<'_> {
                 let name = &target.lists[*id].name;
                 write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#)
             }
-            Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
+            Self::Value(ParameterRef(parameter)) => {
+                let name = &target.parameters[*parameter].name;
+                write!(writer, r#"{{"VALUE":[{name:?},null]}}"#)
+            }
             Self::Operator(operator) => write!(writer, r#"{{"OPERATOR":[{operator:?},null]}}"#),
             Self::KeyOption(key) => write!(writer, r#"{{"KEY_OPTION":[{key:?},null]}}"#),
             Self::BroadcastOption(broadcast) => {

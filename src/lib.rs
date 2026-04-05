@@ -4,10 +4,7 @@ mod costume;
 pub use costume::Costume;
 
 use block::{Block, Fields, Input, Opcode};
-use std::{
-    fmt::Write as _,
-    io::{self, Write as _},
-};
+use std::io::{self, Write as _};
 
 pub struct Project<'strings> {
     targets: Vec<RealTarget<'strings>>,
@@ -33,7 +30,6 @@ impl<'strings> Project<'strings> {
     fn target(&mut self, index: usize) -> Target<'strings, '_> {
         Target {
             inner: &mut self.targets[index],
-            next_parameter_id: 0,
             point: InsertionPoint {
                 parent: None,
                 place: Place::Next,
@@ -92,6 +88,8 @@ struct RealTarget<'strings> {
     variables: Vec<Variable<'strings>>,
     lists: Vec<List<'strings>>,
     blocks: Vec<block::Block<'strings>>,
+    parameters: Vec<Parameter>,
+    custom_blocks: Vec<CustomBlock>,
     comments: Vec<Comment>,
 }
 
@@ -153,6 +151,8 @@ impl<'strings> RealTarget<'strings> {
             variables: Vec::new(),
             lists: Vec::new(),
             blocks: Vec::new(),
+            parameters: Vec::new(),
+            custom_blocks: Vec::new(),
             comments: Vec::new(),
         }
     }
@@ -174,7 +174,6 @@ impl Comment {
 
 pub struct Target<'strings, 'project> {
     inner: &'project mut RealTarget<'strings>,
-    next_parameter_id: usize,
     point: InsertionPoint,
 }
 
@@ -203,69 +202,21 @@ impl<'strings> Target<'strings, '_> {
         std::mem::replace(&mut self.point, point)
     }
 
-    #[allow(clippy::missing_panics_doc)]
-    pub fn add_custom_block(
-        &mut self,
-        name: String,
-        parameters: Vec<Parameter>,
-    ) -> (CustomBlock, InsertionPoint) {
-        let param_ids = (self.next_parameter_id..self.next_parameter_id + parameters.len())
-            .map(|id| &*id.to_string().leak())
-            .collect::<Vec<_>>();
-        self.next_parameter_id += parameters.len();
+    pub fn add_parameter(&mut self, parameter: Parameter) -> ParameterRef {
+        let index = self.inner.parameters.len();
+        self.inner.parameters.push(parameter);
+        ParameterRef(index)
+    }
 
-        let mut argumentnames = "[".to_owned();
-        for (i, param) in parameters.iter().enumerate() {
-            if i != 0 {
-                argumentnames.push(',');
-            }
-            write!(argumentnames, "{:?}", param.name).expect("writing to `String` cannot fail");
-        }
-        argumentnames.push(']');
-
-        let mut argumentdefaults = "[".to_owned();
-        for (i, param) in parameters.iter().enumerate() {
-            if i != 0 {
-                argumentdefaults.push(',');
-            }
-            argumentdefaults.push_str(match param.kind {
-                ParameterKind::StringOrNumber => "\"\"",
-                ParameterKind::Boolean => "false",
-            });
-        }
-        argumentdefaults.push(']');
-
-        let mut proccode = name;
-        proccode.extend(parameters.iter().map(|param| match param.kind {
-            ParameterKind::StringOrNumber => " %s",
-            ParameterKind::Boolean => " %b",
-        }));
-
-        let mut argumentids = "[".to_owned();
-        for (i, id) in param_ids.iter().enumerate() {
-            if i != 0 {
-                argumentids.push(',');
-            }
-            write!(argumentids, "{id:?}").expect("writing to `String` cannot fail");
-        }
-        argumentids.push(']');
-
-        let mutation = Mutation {
-            proccode,
-            argumentids,
-            argumentnames: None,
-            argumentdefaults: None,
-        };
-
-        let inputs = param_ids
+    pub fn add_custom_block(&mut self, block: CustomBlock) -> (CustomBlockRef, InsertionPoint) {
+        let inputs = block
+            .parameters
             .iter()
-            .copied()
-            .zip(
-                parameters
-                    .into_iter()
-                    .map(|param| self.custom_block_parameter(param).0),
-            )
+            .map(|&it| (&*it.0.to_string().leak(), self.custom_block_parameter(it).0))
             .collect();
+
+        let index = self.inner.custom_blocks.len();
+        self.inner.custom_blocks.push(block);
 
         let definition = block::Id(self.inner.blocks.len() + 1);
         let prototype = self.insert(Block {
@@ -274,11 +225,7 @@ impl<'strings> Target<'strings, '_> {
             next: None,
             inputs,
             fields: None,
-            mutation: Some(Box::new(Mutation {
-                argumentnames: Some(argumentnames),
-                argumentdefaults: Some(argumentdefaults),
-                ..mutation.clone()
-            })),
+            mutation: Some(Mutation::Prototype(CustomBlockRef(index))),
         });
 
         self.inner.blocks.push(
@@ -290,24 +237,20 @@ impl<'strings> Target<'strings, '_> {
             .into(),
         );
 
-        (
-            CustomBlock {
-                mutation,
-                param_ids,
-            },
-            InsertionPoint {
-                parent: Some(definition),
-                place: Place::Next,
-            },
-        )
+        let point = InsertionPoint {
+            parent: Some(definition),
+            place: Place::Next,
+        };
+        (CustomBlockRef(index), point)
     }
 
-    pub fn use_custom_block(&mut self, block: &CustomBlock, arguments: Vec<Operand<'strings>>) {
-        let inputs = std::iter::zip(
-            block.param_ids.iter().copied(),
-            arguments.into_iter().map(|arg| arg.0),
-        )
-        .collect();
+    pub fn use_custom_block(&mut self, block: CustomBlockRef, arguments: Vec<Operand<'strings>>) {
+        let inputs = self.inner.custom_blocks[block.0]
+            .parameters
+            .iter()
+            .map(|it| &*it.0.to_string().leak())
+            .zip(arguments.into_iter().map(|arg| arg.0))
+            .collect();
 
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
@@ -315,7 +258,7 @@ impl<'strings> Target<'strings, '_> {
             next: None,
             inputs,
             fields: None,
-            mutation: Some(Box::new(block.mutation.clone())),
+            mutation: Some(Mutation::Call(block)),
         });
         self.set_next(id);
         self.point = InsertionPoint {
@@ -324,12 +267,12 @@ impl<'strings> Target<'strings, '_> {
         };
     }
 
-    pub fn custom_block_parameter(&mut self, param: Parameter) -> Operand<'strings> {
-        let opcode = match param.kind {
+    pub fn custom_block_parameter(&mut self, parameter: ParameterRef) -> Operand<'strings> {
+        let opcode = match self.inner.parameters[parameter.0].kind {
             ParameterKind::StringOrNumber => Opcode::argument_reporter_string_number,
             ParameterKind::Boolean => Opcode::argument_reporter_boolean,
         };
-        self.op(Block::new(opcode).fields(Fields::Value(param.name)))
+        self.op(Block::new(opcode).fields(Fields::Value(parameter)))
     }
 
     pub fn start_script(&mut self, hat: block::Hat<'strings>) {
@@ -703,31 +646,73 @@ pub enum ParameterKind {
     Boolean,
 }
 
+#[derive(Clone, Copy)]
+pub struct ParameterRef(usize);
+
 pub struct CustomBlock {
-    mutation: Mutation,
-    param_ids: Vec<&'static str>,
+    name: String,
+    parameters: Vec<ParameterRef>,
 }
 
-#[derive(Clone)]
-struct Mutation {
-    proccode: String,
-    argumentids: String,
-    argumentnames: Option<String>,
-    argumentdefaults: Option<String>,
+#[derive(Clone, Copy)]
+pub struct CustomBlockRef(usize);
+
+#[derive(Clone, Copy)]
+enum Mutation {
+    Prototype(CustomBlockRef),
+    Call(CustomBlockRef),
 }
 
 impl Mutation {
-    fn serialize(&self, writer: &mut dyn io::Write) -> io::Result<()> {
+    fn serialize(self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
+        let (Self::Prototype(block) | Self::Call(block)) = self;
+        let block = &target.custom_blocks[block.0];
         write!(
             writer,
-            r#"{{"tagName":"mutation","children":[],"proccode":{:?},"argumentids":{:?},"warp":true"#,
-            self.proccode, self.argumentids
+            r#"{{"tagName":"mutation","children":[],"proccode":"{}"#,
+            block.name.escape_debug()
         )?;
-        if let Some(argumentnames) = &self.argumentnames {
-            write!(writer, r#","argumentnames":{argumentnames:?}"#)?;
+        for parameter in &block.parameters {
+            writer.write_all(match target.parameters[parameter.0].kind {
+                ParameterKind::StringOrNumber => b" %s",
+                ParameterKind::Boolean => b" %b",
+            })?;
         }
-        if let Some(argumentdefaults) = &self.argumentdefaults {
-            write!(writer, r#","argumentdefaults":{argumentdefaults:?}"#)?;
+        write!(writer, r#"","argumentids":""#)?;
+        for (index, parameter) in block.parameters.iter().enumerate() {
+            if index != 0 {
+                write!(writer, ",")?;
+            }
+            write!(writer, r#"\"{}\""#, parameter.0)?;
+        }
+        write!(writer, r#"","warp":true"#)?;
+        if matches!(self, Self::Prototype(_)) {
+            write!(writer, r#","argumentnames":"["#)?;
+            for (index, parameter) in block.parameters.iter().enumerate() {
+                if index != 0 {
+                    write!(writer, ",")?;
+                }
+                write!(writer, r#"""#)?;
+                for c in target.parameters[parameter.0]
+                    .name
+                    .escape_debug()
+                    .flat_map(char::escape_debug)
+                {
+                    write!(writer, "{c}")?;
+                }
+                write!(writer, r#"""#)?;
+            }
+            write!(writer, r#"]","argumentdefaults":""#)?;
+            for (index, parameter) in block.parameters.iter().enumerate() {
+                if index != 0 {
+                    write!(writer, ",")?;
+                }
+                writer.write_all(match target.parameters[parameter.0].kind {
+                    ParameterKind::StringOrNumber => br#""""#,
+                    ParameterKind::Boolean => b"false",
+                })?;
+            }
+            write!(writer, r#"""#)?;
         }
         write!(writer, "}}")
     }
