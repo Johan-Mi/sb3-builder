@@ -225,7 +225,7 @@ impl<'strings> Target<'strings, '_> {
             next: None,
             inputs,
             fields: None,
-            mutation: Some(Mutation::Prototype(CustomBlockRef(index))),
+            mutation: Some(Mutation(CustomBlockRef(index))),
         });
 
         self.inner.blocks.push(
@@ -258,7 +258,7 @@ impl<'strings> Target<'strings, '_> {
             next: None,
             inputs,
             fields: None,
-            mutation: Some(Mutation::Call(block)),
+            mutation: Some(Mutation(block)),
         });
         self.set_next(id);
         self.point = InsertionPoint {
@@ -658,15 +658,16 @@ pub struct CustomBlock {
 pub struct CustomBlockRef(usize);
 
 #[derive(Clone, Copy)]
-enum Mutation {
-    Prototype(CustomBlockRef),
-    Call(CustomBlockRef),
-}
+struct Mutation(CustomBlockRef);
 
 impl Mutation {
-    fn serialize(self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
-        let (Self::Prototype(block) | Self::Call(block)) = self;
-        let block = &target.custom_blocks[block.0];
+    fn serialize(
+        self,
+        is_prototype: bool,
+        target: &RealTarget,
+        writer: &mut dyn io::Write,
+    ) -> io::Result<()> {
+        let block = &target.custom_blocks[self.0 .0];
         write!(
             writer,
             r#"{{"tagName":"mutation","children":[],"proccode":"{}"#,
@@ -686,7 +687,7 @@ impl Mutation {
             write!(writer, r#"\"{}\""#, parameter.0)?;
         }
         write!(writer, r#"","warp":true"#)?;
-        if matches!(self, Self::Prototype(_)) {
+        if is_prototype {
             write!(writer, r#","argumentnames":"["#)?;
             for (index, parameter) in block.parameters.iter().enumerate() {
                 if index != 0 {

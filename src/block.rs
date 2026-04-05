@@ -51,7 +51,8 @@ impl<'strings> Block<'strings> {
         }
         if let Some(mutation) = &self.mutation {
             write!(writer, r#","mutation":"#)?;
-            mutation.serialize(target, writer)?;
+            let is_prototype = matches!(self.opcode, Opcode::procedures_prototype);
+            mutation.serialize(is_prototype, target, writer)?;
         }
         if matches!(self.opcode, Opcode::control_create_clone_of_menu) {
             write!(writer, r#","shadow":true"#)?;
