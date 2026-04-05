@@ -6,12 +6,16 @@ pub(crate) struct Block<'strings> {
     pub(crate) parent: Option<Id>,
     pub(crate) next: Option<Id>,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
-    pub(crate) fields: Option<Fields<'strings>>,
     pub(crate) mutation: Mutation,
 }
 
 impl<'strings> Block<'strings> {
-    pub fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
+    pub fn serialize(
+        &self,
+        fields: Option<Fields>,
+        target: &RealTarget,
+        writer: &mut dyn io::Write,
+    ) -> io::Result<()> {
         write!(writer, r#"{{"opcode":"{:?}","parent":"#, self.opcode)?;
         if let Some(parent) = self.parent {
             write!(writer, "{parent}")
@@ -45,7 +49,7 @@ impl<'strings> Block<'strings> {
             }
             write!(writer, "}}")?;
         }
-        if let Some(fields) = &self.fields {
+        if let Some(fields) = fields {
             write!(writer, r#","fields":"#)?;
             fields.serialize(target, writer)?;
         }
@@ -69,7 +73,6 @@ impl<'strings> Block<'strings> {
             parent: None,
             next: None,
             inputs: Box::new([]),
-            fields: None,
             mutation: Mutation::NONE,
         }
     }
@@ -81,48 +84,18 @@ impl<'strings> Block<'strings> {
         self.inputs = inputs.into();
         self
     }
-
-    pub(crate) const fn fields(mut self, fields: Fields<'strings>) -> Self {
-        self.fields = Some(fields);
-        self
-    }
 }
 
+#[derive(Clone, Copy)]
 pub struct Hat<'strings> {
-    opcode: Opcode,
-    fields: Option<Fields<'strings>>,
-}
-
-impl<'strings> From<Hat<'strings>> for Block<'strings> {
-    fn from(hat: Hat<'strings>) -> Self {
-        Self {
-            opcode: hat.opcode,
-            parent: None,
-            next: None,
-            inputs: Box::new([]),
-            fields: hat.fields,
-            mutation: Mutation::NONE,
-        }
-    }
+    pub(crate) opcode: Opcode,
+    pub(crate) fields: Option<Fields<'strings>>,
 }
 
 pub struct Stacking<'strings> {
     pub(crate) opcode: Opcode,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
     pub(crate) fields: Option<Fields<'strings>>,
-}
-
-impl<'strings> From<Stacking<'strings>> for Block<'strings> {
-    fn from(stacking: Stacking<'strings>) -> Self {
-        Self {
-            opcode: stacking.opcode,
-            parent: None,
-            next: None,
-            inputs: stacking.inputs,
-            fields: stacking.fields,
-            mutation: Mutation::NONE,
-        }
-    }
 }
 
 impl Stacking<'_> {
@@ -480,6 +453,7 @@ impl Input<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) enum Fields<'strings> {
     Variable(VariableRef),
     List(ListRef),
@@ -532,7 +506,7 @@ impl fmt::Display for Id {
     non_camel_case_types,
     reason = "exact names are used by derived `Debug` impl"
 )]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum Opcode {
     argument_reporter_boolean,
     argument_reporter_string_number,
@@ -610,4 +584,91 @@ pub(crate) enum Opcode {
     sensing_mousey,
     sensing_resettimer,
     sensing_timer,
+}
+
+impl Opcode {
+    pub(crate) const fn has_fields(self) -> bool {
+        #[expect(
+            clippy::match_same_arms,
+            reason = "easier to keep opcodes in order when the arms aren't merged"
+        )]
+        match self {
+            Self::argument_reporter_boolean => true,
+            Self::argument_reporter_string_number => true,
+            Self::control_create_clone_of => false,
+            Self::control_create_clone_of_menu => true,
+            Self::control_for_each => false,
+            Self::control_forever => false,
+            Self::control_if => false,
+            Self::control_if_else => false,
+            Self::control_repeat => false,
+            Self::control_repeat_until => false,
+            Self::control_start_as_clone => false,
+            Self::control_stop => true,
+            Self::control_wait => false,
+            Self::control_while => false,
+            Self::data_addtolist => true,
+            Self::data_changevariableby => true,
+            Self::data_deletealloflist => true,
+            Self::data_deleteoflist => true,
+            Self::data_insertatlist => true,
+            Self::data_itemnumoflist => true,
+            Self::data_itemoflist => true,
+            Self::data_lengthoflist => true,
+            Self::data_listcontainsitem => true,
+            Self::data_replaceitemoflist => true,
+            Self::data_setvariableto => true,
+            Self::event_broadcastandwait => false,
+            Self::event_whenbroadcastreceived => true,
+            Self::event_whenflagclicked => false,
+            Self::event_whenkeypressed => true,
+            Self::looks_gotofrontback => false,
+            Self::looks_hide => false,
+            Self::looks_say => false,
+            Self::looks_setsizeto => false,
+            Self::looks_show => false,
+            Self::looks_switchcostumeto => false,
+            Self::motion_changexby => false,
+            Self::motion_changeyby => false,
+            Self::motion_gotoxy => false,
+            Self::motion_movesteps => false,
+            Self::motion_setx => false,
+            Self::motion_sety => false,
+            Self::motion_xposition => false,
+            Self::motion_yposition => false,
+            Self::operator_add => false,
+            Self::operator_and => false,
+            Self::operator_contains => false,
+            Self::operator_divide => false,
+            Self::operator_equals => false,
+            Self::operator_gt => false,
+            Self::operator_join => false,
+            Self::operator_length => false,
+            Self::operator_letter_of => false,
+            Self::operator_lt => false,
+            Self::operator_mathop => true,
+            Self::operator_mod => false,
+            Self::operator_multiply => false,
+            Self::operator_not => false,
+            Self::operator_or => false,
+            Self::operator_random => false,
+            Self::operator_subtract => false,
+            Self::pen_clear => false,
+            Self::pen_penDown => false,
+            Self::pen_penUp => false,
+            Self::pen_setPenColorTo => false,
+            Self::pen_setPenSizeTo => false,
+            Self::pen_stamp => false,
+            Self::procedures_call => false,
+            Self::procedures_definition => false,
+            Self::procedures_prototype => false,
+            Self::sensing_answer => false,
+            Self::sensing_askandwait => false,
+            Self::sensing_keypressed => false,
+            Self::sensing_mousex => false,
+            Self::sensing_mousey => false,
+            Self::sensing_resettimer => false,
+            Self::sensing_timer => false,
+        }
+    }
 }

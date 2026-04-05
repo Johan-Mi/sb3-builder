@@ -89,6 +89,7 @@ struct RealTarget<'strings> {
     variables: Vec<Variable<'strings>>,
     lists: Vec<List<'strings>>,
     blocks: Vec<block::Block<'strings>>,
+    fields: Vec<Fields<'strings>>,
     parameters: Vec<Parameter>,
     custom_blocks: Vec<CustomBlock>,
     comments: Vec<Comment>,
@@ -124,12 +125,17 @@ impl RealTarget<'_> {
             list.serialize(writer)?;
         }
         write!(writer, r#"}},"blocks":{{"#)?;
+        let mut fields = self.fields.iter().copied();
         for (i, block) in self.blocks.iter().enumerate() {
             if i != 0 {
                 write!(writer, ",")?;
             }
             write!(writer, "{}:", block::Id(i))?;
-            block.serialize(self, writer)?;
+            let fields = block
+                .opcode
+                .has_fields()
+                .then(|| fields.next().unwrap_or_else(|| unreachable!()));
+            block.serialize(fields, self, writer)?;
         }
         write!(writer, r#"}},"comments":{{"#)?;
         for (i, comment) in self.comments.iter().enumerate() {
@@ -152,6 +158,7 @@ impl<'strings> RealTarget<'strings> {
             variables: Vec::new(),
             lists: Vec::new(),
             blocks: Vec::new(),
+            fields: Vec::new(),
             parameters: Vec::new(),
             custom_blocks: Vec::new(),
             comments: Vec::new(),
@@ -230,18 +237,16 @@ impl<'strings> Target<'strings, '_> {
             parent: Some(definition),
             next: None,
             inputs,
-            fields: None,
             mutation: Mutation(CustomBlockRef(index)),
         });
 
-        self.inner.blocks.push(
-            block::Stacking {
-                opcode: Opcode::procedures_definition,
-                inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
-                fields: None,
-            }
-            .into(),
-        );
+        self.inner.blocks.push(Block {
+            opcode: Opcode::procedures_definition,
+            parent: None,
+            next: None,
+            inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
+            mutation: Mutation::NONE,
+        });
 
         let point = InsertionPoint {
             parent: Some(definition),
@@ -263,7 +268,6 @@ impl<'strings> Target<'strings, '_> {
             parent: self.point.parent,
             next: None,
             inputs,
-            fields: None,
             mutation: Mutation(block),
         });
         self.set_next(id);
@@ -291,12 +295,20 @@ impl<'strings> Target<'strings, '_> {
             ParameterKind::StringOrNumber => Opcode::argument_reporter_string_number,
             ParameterKind::Boolean => Opcode::argument_reporter_boolean,
         };
-        self.op(Block::new(opcode).fields(Fields::Value(absolute_index)))
+        self.inner.fields.push(Fields::Value(absolute_index));
+        self.op(Block::new(opcode))
     }
 
     pub fn start_script(&mut self, hat: block::Hat<'strings>) {
+        self.inner.fields.extend(hat.fields);
         let id = block::Id(self.inner.blocks.len());
-        self.inner.blocks.push(hat.into());
+        self.inner.blocks.push(Block {
+            opcode: hat.opcode,
+            parent: None,
+            next: None,
+            inputs: Box::new([]),
+            mutation: Mutation::NONE,
+        });
         self.point = InsertionPoint {
             parent: Some(id),
             place: Place::Next,
@@ -304,9 +316,14 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn put(&mut self, block: block::Stacking<'strings>) {
-        let mut block = Block::from(block);
-        block.parent = self.point.parent;
-        let id = self.insert(block);
+        self.inner.fields.extend(block.fields);
+        let id = self.insert(Block {
+            opcode: block.opcode,
+            parent: self.point.parent,
+            next: None,
+            inputs: block.inputs,
+            mutation: Mutation::NONE,
+        });
         self.set_next(id);
         self.point = InsertionPoint {
             parent: Some(id),
@@ -476,9 +493,8 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn item_of_list(&mut self, list: ListRef, index: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::data_itemoflist)
-            .inputs([("INDEX", index.0)])
-            .fields(Fields::List(list)))
+        self.inner.fields.push(Fields::List(list));
+        self.op(Block::new(Opcode::data_itemoflist).inputs([("INDEX", index.0)]))
     }
 
     pub fn item_num_of_list(
@@ -486,9 +502,8 @@ impl<'strings> Target<'strings, '_> {
         list: ListRef,
         item: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new(Opcode::data_itemnumoflist)
-            .inputs([("ITEM", item.0)])
-            .fields(Fields::List(list)))
+        self.inner.fields.push(Fields::List(list));
+        self.op(Block::new(Opcode::data_itemnumoflist).inputs([("ITEM", item.0)]))
     }
 
     pub fn length(&mut self, string: Operand<'strings>) -> Operand<'strings> {
@@ -496,7 +511,8 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn length_of_list(&mut self, list: ListRef) -> Operand<'strings> {
-        self.op(Block::new(Opcode::data_lengthoflist).fields(Fields::List(list)))
+        self.inner.fields.push(Fields::List(list));
+        self.op(Block::new(Opcode::data_lengthoflist))
     }
 
     pub fn letter_of(
@@ -522,9 +538,8 @@ impl<'strings> Target<'strings, '_> {
         list: ListRef,
         item: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new(Opcode::data_listcontainsitem)
-            .inputs([("ITEM", item.0)])
-            .fields(Fields::List(list)))
+        self.inner.fields.push(Fields::List(list));
+        self.op(Block::new(Opcode::data_listcontainsitem).inputs([("ITEM", item.0)]))
     }
 
     pub fn join(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
@@ -532,9 +547,8 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn mathop(&mut self, operator: &'static str, num: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_mathop)
-            .inputs([("NUM", num.0)])
-            .fields(Fields::Operator(operator)))
+        self.inner.fields.push(Fields::Operator(operator));
+        self.op(Block::new(Opcode::operator_mathop).inputs([("NUM", num.0)]))
     }
 
     pub fn mouse_x(&mut self) -> Operand<'strings> {
@@ -554,8 +568,8 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn clone_self(&mut self) {
-        let menu =
-            self.insert(Block::new(Opcode::control_create_clone_of_menu).fields(Fields::CloneSelf));
+        self.inner.fields.push(Fields::CloneSelf);
+        let menu = self.insert(Block::new(Opcode::control_create_clone_of_menu));
         self.put(block::Stacking {
             opcode: Opcode::control_create_clone_of,
             inputs: Box::new([("CLONE_OPTION", Input::Prototype(menu))]),
