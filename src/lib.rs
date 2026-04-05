@@ -88,7 +88,8 @@ struct RealTarget<'strings> {
     costumes: Vec<Costume<'strings>>,
     variables: Vec<Variable<'strings>>,
     lists: Vec<List<'strings>>,
-    blocks: Vec<block::Block<'strings>>,
+    blocks: Vec<block::Block>,
+    inputs: Vec<(&'static str, Input<'strings>)>,
     fields: Vec<Fields<'strings>>,
     mutations: Vec<Mutation>,
     parameters: Vec<Parameter>,
@@ -126,6 +127,7 @@ impl RealTarget<'_> {
             list.serialize(writer)?;
         }
         write!(writer, r#"}},"blocks":{{"#)?;
+        let mut all_inputs = &*self.inputs;
         let mut fields = self.fields.iter().copied();
         let mut mutations = self.mutations.iter().copied();
         for (i, block) in self.blocks.iter().enumerate() {
@@ -133,16 +135,24 @@ impl RealTarget<'_> {
                 write!(writer, ",")?;
             }
             write!(writer, "{}:", block::Id(i))?;
-            let fields = block
-                .opcode
-                .has_fields()
-                .then(|| fields.next().unwrap_or_else(|| unreachable!()));
             let mutation = matches!(
                 block.opcode,
                 Opcode::procedures_call | Opcode::procedures_prototype
             )
             .then(|| mutations.next().unwrap_or_else(|| unreachable!()));
-            block.serialize(fields, mutation, self, writer)?;
+            let input_count = block.opcode.input_count().unwrap_or_else(|| {
+                self.custom_blocks[mutation.unwrap_or_else(|| unreachable!()).0 .0]
+                    .parameters
+                    .len()
+            });
+            let inputs = all_inputs
+                .split_off(..input_count)
+                .unwrap_or_else(|| unreachable!());
+            let fields = block
+                .opcode
+                .has_fields()
+                .then(|| fields.next().unwrap_or_else(|| unreachable!()));
+            block.serialize(inputs, fields, mutation, self, writer)?;
         }
         write!(writer, r#"}},"comments":{{"#)?;
         for (i, comment) in self.comments.iter().enumerate() {
@@ -165,6 +175,7 @@ impl<'strings> RealTarget<'strings> {
             variables: Vec::new(),
             lists: Vec::new(),
             blocks: Vec::new(),
+            inputs: Vec::new(),
             fields: Vec::new(),
             mutations: Vec::new(),
             parameters: Vec::new(),
@@ -226,13 +237,6 @@ impl<'strings> Target<'strings, '_> {
         let start = self.inner.parameters.len();
         self.inner.parameters.extend(parameters);
 
-        let inputs = (start..self.inner.parameters.len())
-            .map(|it| {
-                let id = &*it.to_string().leak();
-                (id, self.custom_block_parameter_raw(it).0)
-            })
-            .collect();
-
         let index = self.inner.custom_blocks.len();
         self.inner.custom_blocks.push(CustomBlock {
             name,
@@ -245,14 +249,20 @@ impl<'strings> Target<'strings, '_> {
             opcode: Opcode::procedures_prototype,
             parent: definition.into(),
             next: None.into(),
-            inputs,
         });
 
+        for parameter in start..self.inner.parameters.len() {
+            let id = &*parameter.to_string().leak();
+            let input = self.custom_block_parameter_raw(parameter).0;
+            self.add_inputs(prototype, [(id, input)]);
+        }
+
+        let id = block::Id(self.inner.blocks.len());
+        self.add_inputs(id, [("custom_block", Input::Prototype(prototype))]);
         self.inner.blocks.push(Block {
             opcode: Opcode::procedures_definition,
             parent: None.into(),
             next: None.into(),
-            inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
         });
 
         let point = InsertionPoint {
@@ -263,20 +273,20 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn use_custom_block(&mut self, block: CustomBlockRef, arguments: Vec<Operand<'strings>>) {
-        let inputs = self.inner.custom_blocks[block.0]
-            .parameters
-            .clone()
-            .map(|it| &*it.to_string().leak())
-            .zip(arguments.into_iter().map(|arg| arg.0))
-            .collect();
-
         self.inner.mutations.push(Mutation(block));
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
             parent: self.point.parent,
             next: None.into(),
-            inputs,
         });
+        self.add_inputs(
+            id,
+            self.inner.custom_blocks[block.0]
+                .parameters
+                .clone()
+                .map(|it| &*it.to_string().leak())
+                .zip(arguments.into_iter().map(|arg| arg.0)),
+        );
         self.set_next(id);
         self.point = InsertionPoint {
             parent: id.into(),
@@ -303,7 +313,7 @@ impl<'strings> Target<'strings, '_> {
             ParameterKind::Boolean => Opcode::argument_reporter_boolean,
         };
         self.inner.fields.push(Fields::Value(absolute_index));
-        self.op(Block::new(opcode))
+        self.op(opcode, [])
     }
 
     pub fn start_script(&mut self, hat: block::Hat<'strings>) {
@@ -313,7 +323,6 @@ impl<'strings> Target<'strings, '_> {
             opcode: hat.opcode,
             parent: None.into(),
             next: None.into(),
-            inputs: Box::new([]),
         });
         self.point = InsertionPoint {
             parent: id.into(),
@@ -327,8 +336,8 @@ impl<'strings> Target<'strings, '_> {
             opcode: block.opcode,
             parent: self.point.parent,
             next: None.into(),
-            inputs: block.inputs,
         });
+        self.add_inputs(id, block.inputs);
         self.set_next(id);
         self.point = InsertionPoint {
             parent: id.into(),
@@ -337,15 +346,17 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn forever(&mut self) {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_forever,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack)]),
             fields: None,
         });
-        self.point.place = Place::Substack1;
+        self.point.place = Place::Substack { input };
     }
 
     pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_repeat,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("TIMES", times.0)]),
@@ -353,11 +364,12 @@ impl<'strings> Target<'strings, '_> {
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack1,
+            place: Place::Substack { input },
         })
     }
 
     pub fn for_(&mut self, variable: VariableRef, times: Operand<'strings>) -> InsertionPoint {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_for_each,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("VALUE", times.0)]),
@@ -365,11 +377,12 @@ impl<'strings> Target<'strings, '_> {
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack1,
+            place: Place::Substack { input },
         })
     }
 
     pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_if,
             inputs: Box::new([
@@ -380,11 +393,12 @@ impl<'strings> Target<'strings, '_> {
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack1,
+            place: Place::Substack { input },
         })
     }
 
     pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint; 2] {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_if_else,
             inputs: Box::new([
@@ -396,16 +410,17 @@ impl<'strings> Target<'strings, '_> {
         });
         let after = self.insert_at(InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack1,
+            place: Place::Substack { input },
         });
         let else_ = InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack2,
+            place: Place::Substack { input: input + 1 },
         };
         [after, else_]
     }
 
     pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_while,
             inputs: Box::new([
@@ -416,11 +431,12 @@ impl<'strings> Target<'strings, '_> {
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack1,
+            place: Place::Substack { input },
         })
     }
 
     pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint {
+        let input = self.inner.inputs.len();
         self.put(block::Stacking {
             opcode: Opcode::control_repeat_until,
             inputs: Box::new([
@@ -431,75 +447,94 @@ impl<'strings> Target<'strings, '_> {
         });
         self.insert_at(InsertionPoint {
             parent: self.point.parent,
-            place: Place::Substack1,
+            place: Place::Substack { input },
         })
     }
 
     pub fn add(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_add).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Opcode::operator_add, [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn sub(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_subtract).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(
+            Opcode::operator_subtract,
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
     }
 
     pub fn mul(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_multiply).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(
+            Opcode::operator_multiply,
+            [("NUM1", lhs.0), ("NUM2", rhs.0)],
+        )
     }
 
     pub fn div(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_divide).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Opcode::operator_divide, [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn modulo(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_mod).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Opcode::operator_mod, [("NUM1", lhs.0), ("NUM2", rhs.0)])
     }
 
     pub fn lt(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_lt).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(
+            Opcode::operator_lt,
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
     }
 
     pub fn eq(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
         self.op(
-            Block::new(Opcode::operator_equals).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
+            Opcode::operator_equals,
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
         )
     }
 
     pub fn gt(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_gt).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(
+            Opcode::operator_gt,
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
     }
 
     pub fn not(&mut self, operand: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_not).inputs([("OPERAND", operand.0)]))
+        self.op(Opcode::operator_not, [("OPERAND", operand.0)])
     }
 
     pub fn and(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_and).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(
+            Opcode::operator_and,
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
     }
 
     pub fn or(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_or).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(
+            Opcode::operator_or,
+            [("OPERAND1", lhs.0), ("OPERAND2", rhs.0)],
+        )
     }
 
     pub fn x_position(&mut self) -> Operand<'strings> {
-        self.op(Block::new(Opcode::motion_xposition))
+        self.op(Opcode::motion_xposition, [])
     }
 
     pub fn y_position(&mut self) -> Operand<'strings> {
-        self.op(Block::new(Opcode::motion_yposition))
+        self.op(Opcode::motion_yposition, [])
     }
 
     pub fn timer(&mut self) -> Operand<'strings> {
-        self.op(Block::new(Opcode::sensing_timer))
+        self.op(Opcode::sensing_timer, [])
     }
 
     pub fn answer(&mut self) -> Operand<'strings> {
-        self.op(Block::new(Opcode::sensing_answer))
+        self.op(Opcode::sensing_answer, [])
     }
 
     pub fn item_of_list(&mut self, list: ListRef, index: Operand<'strings>) -> Operand<'strings> {
         self.inner.fields.push(Fields::List(list));
-        self.op(Block::new(Opcode::data_itemoflist).inputs([("INDEX", index.0)]))
+        self.op(Opcode::data_itemoflist, [("INDEX", index.0)])
     }
 
     pub fn item_num_of_list(
@@ -508,16 +543,16 @@ impl<'strings> Target<'strings, '_> {
         item: Operand<'strings>,
     ) -> Operand<'strings> {
         self.inner.fields.push(Fields::List(list));
-        self.op(Block::new(Opcode::data_itemnumoflist).inputs([("ITEM", item.0)]))
+        self.op(Opcode::data_itemnumoflist, [("ITEM", item.0)])
     }
 
     pub fn length(&mut self, string: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_length).inputs([("STRING", string.0)]))
+        self.op(Opcode::operator_length, [("STRING", string.0)])
     }
 
     pub fn length_of_list(&mut self, list: ListRef) -> Operand<'strings> {
         self.inner.fields.push(Fields::List(list));
-        self.op(Block::new(Opcode::data_lengthoflist))
+        self.op(Opcode::data_lengthoflist, [])
     }
 
     pub fn letter_of(
@@ -525,8 +560,10 @@ impl<'strings> Target<'strings, '_> {
         string: Operand<'strings>,
         index: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_letter_of)
-            .inputs([("STRING", string.0), ("LETTER", index.0)]))
+        self.op(
+            Opcode::operator_letter_of,
+            [("STRING", string.0), ("LETTER", index.0)],
+        )
     }
 
     pub fn contains(
@@ -534,8 +571,10 @@ impl<'strings> Target<'strings, '_> {
         haystack: Operand<'strings>,
         needle: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_contains)
-            .inputs([("STRING1", haystack.0), ("STRING2", needle.0)]))
+        self.op(
+            Opcode::operator_contains,
+            [("STRING1", haystack.0), ("STRING2", needle.0)],
+        )
     }
 
     pub fn list_contains_item(
@@ -544,32 +583,35 @@ impl<'strings> Target<'strings, '_> {
         item: Operand<'strings>,
     ) -> Operand<'strings> {
         self.inner.fields.push(Fields::List(list));
-        self.op(Block::new(Opcode::data_listcontainsitem).inputs([("ITEM", item.0)]))
+        self.op(Opcode::data_listcontainsitem, [("ITEM", item.0)])
     }
 
     pub fn join(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_join).inputs([("STRING1", lhs.0), ("STRING2", rhs.0)]))
+        self.op(
+            Opcode::operator_join,
+            [("STRING1", lhs.0), ("STRING2", rhs.0)],
+        )
     }
 
     pub fn mathop(&mut self, operator: &'static str, num: Operand<'strings>) -> Operand<'strings> {
         self.inner.fields.push(Fields::Operator(operator));
-        self.op(Block::new(Opcode::operator_mathop).inputs([("NUM", num.0)]))
+        self.op(Opcode::operator_mathop, [("NUM", num.0)])
     }
 
     pub fn mouse_x(&mut self) -> Operand<'strings> {
-        self.op(Block::new(Opcode::sensing_mousex))
+        self.op(Opcode::sensing_mousex, [])
     }
 
     pub fn mouse_y(&mut self) -> Operand<'strings> {
-        self.op(Block::new(Opcode::sensing_mousey))
+        self.op(Opcode::sensing_mousey, [])
     }
 
     pub fn key_is_pressed(&mut self, key: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::sensing_keypressed).inputs([("KEY_OPTION", key.0)]))
+        self.op(Opcode::sensing_keypressed, [("KEY_OPTION", key.0)])
     }
 
     pub fn random(&mut self, from: Operand<'strings>, to: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new(Opcode::operator_random).inputs([("FROM", from.0), ("TO", to.0)]))
+        self.op(Opcode::operator_random, [("FROM", from.0), ("TO", to.0)])
     }
 
     pub fn clone_self(&mut self) {
@@ -582,17 +624,22 @@ impl<'strings> Target<'strings, '_> {
         });
     }
 
-    fn op(&mut self, block: Block<'strings>) -> Operand<'strings> {
-        Operand(Input::Substack(self.insert(block)))
+    fn op(
+        &mut self,
+        opcode: Opcode,
+        inputs: impl IntoIterator<Item = (&'static str, Input<'strings>)>,
+    ) -> Operand<'strings> {
+        let id = self.insert(Block {
+            opcode,
+            parent: None.into(),
+            next: None.into(),
+        });
+        self.add_inputs(id, inputs);
+        Operand(Input::Substack(id))
     }
 
-    fn insert(&mut self, block: Block<'strings>) -> block::Id {
+    fn insert(&mut self, block: Block) -> block::Id {
         let id = block::Id(self.inner.blocks.len());
-        for (_, input) in &block.inputs {
-            if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) = input {
-                self.inner.blocks[operand_block_id.0].parent = id.into();
-            }
-        }
         self.inner.blocks.push(block);
         id
     }
@@ -604,9 +651,20 @@ impl<'strings> Target<'strings, '_> {
         let parent = &mut self.inner.blocks[parent.0];
         match self.point.place {
             Place::Next => parent.next = next.into(),
-            Place::Substack1 => parent.inputs[0].1 = Input::Substack(next),
-            Place::Substack2 => parent.inputs[1].1 = Input::Substack(next),
+            Place::Substack { input } => self.inner.inputs[input].1 = Input::Substack(next),
         }
+    }
+
+    fn add_inputs(
+        &mut self,
+        parent: block::Id,
+        inputs: impl IntoIterator<Item = (&'static str, Input<'strings>)>,
+    ) {
+        self.inner.inputs.extend(inputs.into_iter().inspect(|it| {
+            if let Input::Substack(it) = it.1 {
+                self.inner.blocks[it.0].parent = parent.into();
+            }
+        }));
     }
 }
 
@@ -617,8 +675,7 @@ pub struct InsertionPoint {
 
 enum Place {
     Next,
-    Substack1,
-    Substack2,
+    Substack { input: usize },
 }
 
 pub enum Constant<'strings> {

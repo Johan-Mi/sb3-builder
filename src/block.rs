@@ -1,16 +1,16 @@
 use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
 use std::{fmt, io};
 
-pub(crate) struct Block<'strings> {
+pub(crate) struct Block {
     pub(crate) opcode: Opcode,
     pub(crate) parent: OptionId,
     pub(crate) next: OptionId,
-    pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
 }
 
-impl<'strings> Block<'strings> {
+impl Block {
     pub fn serialize(
         &self,
+        inputs: &[(&str, Input)],
         fields: Option<Fields>,
         mutation: Option<Mutation>,
         target: &RealTarget,
@@ -29,14 +29,12 @@ impl<'strings> Block<'strings> {
             write!(writer, "null")
         }?;
         write!(writer, r#","topLevel":{}"#, self.parent.get().is_none())?;
-        if self
-            .inputs
+        if inputs
             .iter()
             .any(|(_, it)| !matches!(it, Input::EmptySubstack))
         {
             write!(writer, r#","inputs":{{"#)?;
-            for (i, (name, input)) in self
-                .inputs
+            for (i, (name, input)) in inputs
                 .iter()
                 .filter(|(_, it)| !matches!(it, Input::EmptySubstack))
                 .enumerate()
@@ -69,16 +67,7 @@ impl<'strings> Block<'strings> {
             opcode,
             parent: None.into(),
             next: None.into(),
-            inputs: Box::new([]),
         }
-    }
-
-    pub(crate) fn inputs(
-        mut self,
-        inputs: impl Into<Box<[(&'static str, Input<'strings>)]>>,
-    ) -> Self {
-        self.inputs = inputs.into();
-        self
     }
 }
 
@@ -687,5 +676,90 @@ impl Opcode {
             Self::sensing_resettimer => false,
             Self::sensing_timer => false,
         }
+    }
+
+    #[expect(
+        clippy::match_same_arms,
+        reason = "easier to keep opcodes in order when the arms aren't merged"
+    )]
+    pub(crate) const fn input_count(self) -> Option<usize> {
+        Some(match self {
+            Self::argument_reporter_boolean => 0,
+            Self::argument_reporter_string_number => 0,
+            Self::control_create_clone_of => 1,
+            Self::control_create_clone_of_menu => 0,
+            Self::control_for_each => 2,
+            Self::control_forever => 1,
+            Self::control_if => 2,
+            Self::control_if_else => 3,
+            Self::control_repeat => 2,
+            Self::control_repeat_until => 2,
+            Self::control_start_as_clone => 0,
+            Self::control_stop => 0,
+            Self::control_wait => 1,
+            Self::control_while => 2,
+            Self::data_addtolist => 1,
+            Self::data_changevariableby => 1,
+            Self::data_deletealloflist => 0,
+            Self::data_deleteoflist => 1,
+            Self::data_insertatlist => 2,
+            Self::data_itemnumoflist => 1,
+            Self::data_itemoflist => 1,
+            Self::data_lengthoflist => 0,
+            Self::data_listcontainsitem => 1,
+            Self::data_replaceitemoflist => 2,
+            Self::data_setvariableto => 1,
+            Self::event_broadcastandwait => 1,
+            Self::event_whenbroadcastreceived => 0,
+            Self::event_whenflagclicked => 0,
+            Self::event_whenkeypressed => 0,
+            Self::looks_gotofrontback => 1,
+            Self::looks_hide => 0,
+            Self::looks_say => 1,
+            Self::looks_setsizeto => 1,
+            Self::looks_show => 1,
+            Self::looks_switchcostumeto => 1,
+            Self::motion_changexby => 1,
+            Self::motion_changeyby => 1,
+            Self::motion_gotoxy => 2,
+            Self::motion_movesteps => 1,
+            Self::motion_setx => 1,
+            Self::motion_sety => 1,
+            Self::motion_xposition => 0,
+            Self::motion_yposition => 0,
+            Self::operator_add => 2,
+            Self::operator_and => 2,
+            Self::operator_contains => 2,
+            Self::operator_divide => 2,
+            Self::operator_equals => 2,
+            Self::operator_gt => 2,
+            Self::operator_join => 2,
+            Self::operator_length => 1,
+            Self::operator_letter_of => 2,
+            Self::operator_lt => 2,
+            Self::operator_mathop => 1,
+            Self::operator_mod => 2,
+            Self::operator_multiply => 2,
+            Self::operator_not => 1,
+            Self::operator_or => 2,
+            Self::operator_random => 2,
+            Self::operator_subtract => 2,
+            Self::pen_clear => 0,
+            Self::pen_penDown => 0,
+            Self::pen_penUp => 0,
+            Self::pen_setPenColorTo => 1,
+            Self::pen_setPenSizeTo => 1,
+            Self::pen_stamp => 0,
+            Self::procedures_call => return None,
+            Self::procedures_definition => 1,
+            Self::procedures_prototype => return None,
+            Self::sensing_answer => 0,
+            Self::sensing_askandwait => 1,
+            Self::sensing_keypressed => 1,
+            Self::sensing_mousex => 0,
+            Self::sensing_mousey => 0,
+            Self::sensing_resettimer => 0,
+            Self::sensing_timer => 0,
+        })
     }
 }
