@@ -5,6 +5,7 @@ pub use costume::Costume;
 
 use block::{Block, Fields, Input, Opcode};
 use std::io::{self, Write as _};
+use std::ops::Range;
 
 pub struct Project<'strings> {
     targets: Vec<RealTarget<'strings>>,
@@ -202,21 +203,26 @@ impl<'strings> Target<'strings, '_> {
         std::mem::replace(&mut self.point, point)
     }
 
-    pub fn add_parameter(&mut self, parameter: Parameter) -> ParameterRef {
-        let index = self.inner.parameters.len();
-        self.inner.parameters.push(parameter);
-        ParameterRef(index)
-    }
+    pub fn add_custom_block(
+        &mut self,
+        name: String,
+        parameters: impl Iterator<Item = Parameter>,
+    ) -> (CustomBlockRef, InsertionPoint) {
+        let start = self.inner.parameters.len();
+        self.inner.parameters.extend(parameters);
 
-    pub fn add_custom_block(&mut self, block: CustomBlock) -> (CustomBlockRef, InsertionPoint) {
-        let inputs = block
-            .parameters
-            .iter()
-            .map(|&it| (&*it.0.to_string().leak(), self.custom_block_parameter(it).0))
+        let inputs = (start..self.inner.parameters.len())
+            .map(|it| {
+                let id = &*it.to_string().leak();
+                (id, self.custom_block_parameter_raw(it).0)
+            })
             .collect();
 
         let index = self.inner.custom_blocks.len();
-        self.inner.custom_blocks.push(block);
+        self.inner.custom_blocks.push(CustomBlock {
+            name,
+            parameters: start..self.inner.parameters.len(),
+        });
 
         let definition = block::Id(self.inner.blocks.len() + 1);
         let prototype = self.insert(Block {
@@ -247,8 +253,8 @@ impl<'strings> Target<'strings, '_> {
     pub fn use_custom_block(&mut self, block: CustomBlockRef, arguments: Vec<Operand<'strings>>) {
         let inputs = self.inner.custom_blocks[block.0]
             .parameters
-            .iter()
-            .map(|it| &*it.0.to_string().leak())
+            .clone()
+            .map(|it| &*it.to_string().leak())
             .zip(arguments.into_iter().map(|arg| arg.0))
             .collect();
 
@@ -267,12 +273,25 @@ impl<'strings> Target<'strings, '_> {
         };
     }
 
-    pub fn custom_block_parameter(&mut self, parameter: ParameterRef) -> Operand<'strings> {
-        let opcode = match self.inner.parameters[parameter.0].kind {
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds for `block`.
+    pub fn custom_block_parameter(
+        &mut self,
+        block: CustomBlockRef,
+        index: usize,
+    ) -> Operand<'strings> {
+        let range = &self.inner.custom_blocks[block.0].parameters;
+        assert!(index < range.len());
+        self.custom_block_parameter_raw(range.start + index)
+    }
+
+    pub fn custom_block_parameter_raw(&mut self, absolute_index: usize) -> Operand<'strings> {
+        let opcode = match self.inner.parameters[absolute_index].kind {
             ParameterKind::StringOrNumber => Opcode::argument_reporter_string_number,
             ParameterKind::Boolean => Opcode::argument_reporter_boolean,
         };
-        self.op(Block::new(opcode).fields(Fields::Value(parameter)))
+        self.op(Block::new(opcode).fields(Fields::Value(absolute_index)))
     }
 
     pub fn start_script(&mut self, hat: block::Hat<'strings>) {
@@ -646,12 +665,9 @@ pub enum ParameterKind {
     Boolean,
 }
 
-#[derive(Clone, Copy)]
-pub struct ParameterRef(usize);
-
-pub struct CustomBlock {
+struct CustomBlock {
     name: String,
-    parameters: Vec<ParameterRef>,
+    parameters: Range<usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -675,42 +691,44 @@ impl Mutation {
             r#"{{"tagName":"mutation","children":[],"proccode":"{}"#,
             block.name.escape_debug()
         )?;
-        for parameter in &block.parameters {
-            writer.write_all(match target.parameters[parameter.0].kind {
+        for parameter in &target.parameters[block.parameters.clone()] {
+            writer.write_all(match parameter.kind {
                 ParameterKind::StringOrNumber => b" %s",
                 ParameterKind::Boolean => b" %b",
             })?;
         }
         write!(writer, r#"","argumentids":""#)?;
-        for (index, parameter) in block.parameters.iter().enumerate() {
+        for (index, parameter) in block.parameters.clone().enumerate() {
             if index != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, r#"\"{}\""#, parameter.0)?;
+            write!(writer, r#"\"{parameter}\""#)?;
         }
         write!(writer, r#"","warp":true"#)?;
         if is_prototype {
             write!(writer, r#","argumentnames":"["#)?;
-            for (index, parameter) in block.parameters.iter().enumerate() {
+            for (index, parameter) in target.parameters[block.parameters.clone()]
+                .iter()
+                .enumerate()
+            {
                 if index != 0 {
                     write!(writer, ",")?;
                 }
                 write!(writer, r#"""#)?;
-                for c in target.parameters[parameter.0]
-                    .name
-                    .escape_debug()
-                    .flat_map(char::escape_debug)
-                {
+                for c in parameter.name.escape_debug().flat_map(char::escape_debug) {
                     write!(writer, "{c}")?;
                 }
                 write!(writer, r#"""#)?;
             }
             write!(writer, r#"]","argumentdefaults":""#)?;
-            for (index, parameter) in block.parameters.iter().enumerate() {
+            for (index, parameter) in target.parameters[block.parameters.clone()]
+                .iter()
+                .enumerate()
+            {
                 if index != 0 {
                     write!(writer, ",")?;
                 }
-                writer.write_all(match target.parameters[parameter.0].kind {
+                writer.write_all(match parameter.kind {
                     ParameterKind::StringOrNumber => br#""""#,
                     ParameterKind::Boolean => b"false",
                 })?;

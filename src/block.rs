@@ -1,4 +1,4 @@
-use crate::{ListRef, Mutation, Operand, ParameterRef, RealTarget, VariableRef};
+use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
 use std::{fmt, io};
 
 pub(crate) struct Block<'strings> {
@@ -483,7 +483,7 @@ impl Input<'_> {
 pub(crate) enum Fields<'strings> {
     Variable(VariableRef),
     List(ListRef),
-    Value(ParameterRef),
+    Value(usize),
     Operator(&'static str),
     KeyOption(&'strings str),
     BroadcastOption(&'strings str),
@@ -503,7 +503,7 @@ impl Fields<'_> {
                 let name = &target.lists[*id].name;
                 write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#)
             }
-            Self::Value(ParameterRef(parameter)) => {
+            Self::Value(parameter) => {
                 let name = &target.parameters[*parameter].name;
                 write!(writer, r#"{{"VALUE":[{name:?},null]}}"#)
             }
