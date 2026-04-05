@@ -284,7 +284,7 @@ impl<'strings> Target<'strings, '_> {
         self.inner.blocks.push(
             block::Stacking {
                 opcode: "procedures_definition",
-                inputs: Vec::from([("custom_block", Input::Prototype(prototype))]),
+                inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
                 fields: None,
             }
             .into(),
@@ -307,7 +307,7 @@ impl<'strings> Target<'strings, '_> {
             block.param_ids.iter().copied(),
             arguments.into_iter().map(|arg| arg.0),
         )
-        .collect::<Vec<_>>();
+        .collect();
 
         let id = self.insert(Block {
             opcode: "procedures_call",
@@ -360,7 +360,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_repeat",
-            inputs: Vec::from([("TIMES", times.0)]),
+            inputs: Box::new([("TIMES", times.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -372,7 +372,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn for_(&mut self, variable: VariableRef, times: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_for_each",
-            inputs: Vec::from([("VALUE", times.0)]),
+            inputs: Box::new([("VALUE", times.0)]),
             fields: Some(Fields::Variable(variable)),
         });
         self.insert_at(InsertionPoint {
@@ -384,7 +384,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_if",
-            inputs: Vec::from([("CONDITION", condition.0)]),
+            inputs: Box::new([("CONDITION", condition.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -396,7 +396,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint; 2] {
         self.put(block::Stacking {
             opcode: "control_if_else",
-            inputs: Vec::from([("CONDITION", condition.0)]),
+            inputs: Box::new([("CONDITION", condition.0)]),
             fields: None,
         });
         let after = self.insert_at(InsertionPoint {
@@ -413,7 +413,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_while",
-            inputs: Vec::from([("CONDITION", condition.0)]),
+            inputs: Box::new([("CONDITION", condition.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -425,7 +425,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_repeat_until",
-            inputs: Vec::from([("CONDITION", condition.0)]),
+            inputs: Box::new([("CONDITION", condition.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -576,7 +576,7 @@ impl<'strings> Target<'strings, '_> {
             self.insert(Block::new("control_create_clone_of_menu").fields(Fields::CloneSelf));
         self.put(block::Stacking {
             opcode: "control_create_clone_of",
-            inputs: Vec::from([("CLONE_OPTION", Input::Prototype(menu))]),
+            inputs: Box::new([("CLONE_OPTION", Input::Prototype(menu))]),
             fields: None,
         });
     }
@@ -603,8 +603,16 @@ impl<'strings> Target<'strings, '_> {
         let parent = &mut self.inner.blocks[parent.0];
         match self.point.place {
             Place::Next => parent.next = Some(next),
-            Place::Substack1 => parent.inputs.push(("SUBSTACK", Input::Substack(next))),
-            Place::Substack2 => parent.inputs.push(("SUBSTACK2", Input::Substack(next))),
+            Place::Substack1 => {
+                let mut inputs = std::mem::take(&mut parent.inputs).into_vec();
+                inputs.push(("SUBSTACK", Input::Substack(next)));
+                parent.inputs = inputs.into();
+            }
+            Place::Substack2 => {
+                let mut inputs = std::mem::take(&mut parent.inputs).into_vec();
+                inputs.push(("SUBSTACK2", Input::Substack(next)));
+                parent.inputs = inputs.into();
+            }
         }
     }
 }

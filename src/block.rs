@@ -5,7 +5,7 @@ pub(crate) struct Block<'strings> {
     pub(crate) opcode: &'static str,
     pub(crate) parent: Option<Id>,
     pub(crate) next: Option<Id>,
-    pub(crate) inputs: Vec<(&'static str, Input<'strings>)>,
+    pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
     pub(crate) fields: Option<Fields<'strings>>,
     pub(crate) mutation: Option<Box<Mutation>>,
 }
@@ -50,12 +50,12 @@ impl<'strings> Block<'strings> {
         write!(writer, "}}")
     }
 
-    pub(crate) const fn new(opcode: &'static str) -> Self {
+    pub(crate) fn new(opcode: &'static str) -> Self {
         Self {
             opcode,
             parent: None,
             next: None,
-            inputs: Vec::new(),
+            inputs: Box::new([]),
             fields: None,
             mutation: None,
         }
@@ -63,7 +63,7 @@ impl<'strings> Block<'strings> {
 
     pub(crate) fn inputs(
         mut self,
-        inputs: impl Into<Vec<(&'static str, Input<'strings>)>>,
+        inputs: impl Into<Box<[(&'static str, Input<'strings>)]>>,
     ) -> Self {
         self.inputs = inputs.into();
         self
@@ -86,7 +86,7 @@ impl<'strings> From<Hat<'strings>> for Block<'strings> {
             opcode: hat.opcode,
             parent: None,
             next: None,
-            inputs: Vec::new(),
+            inputs: Box::new([]),
             fields: hat.fields,
             mutation: None,
         }
@@ -95,7 +95,7 @@ impl<'strings> From<Hat<'strings>> for Block<'strings> {
 
 pub struct Stacking<'strings> {
     pub(crate) opcode: &'static str,
-    pub(crate) inputs: Vec<(&'static str, Input<'strings>)>,
+    pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
     pub(crate) fields: Option<Fields<'strings>>,
 }
 
@@ -113,10 +113,10 @@ impl<'strings> From<Stacking<'strings>> for Block<'strings> {
 }
 
 impl Stacking<'_> {
-    pub(crate) const fn new(opcode: &'static str) -> Self {
+    pub(crate) fn new(opcode: &'static str) -> Self {
         Self {
             opcode,
-            inputs: Vec::new(),
+            inputs: Box::new([]),
             fields: None,
         }
     }
@@ -158,7 +158,7 @@ pub const fn when_received(message: &str) -> Hat<'_> {
 pub fn append(list: ListRef, item: Operand) -> Stacking {
     Stacking {
         opcode: "data_addtolist",
-        inputs: Vec::from([("ITEM", item.0)]),
+        inputs: Box::new([("ITEM", item.0)]),
         fields: Some(Fields::List(list)),
     }
 }
@@ -167,7 +167,7 @@ pub fn append(list: ListRef, item: Operand) -> Stacking {
 pub fn ask(question: Operand) -> Stacking {
     Stacking {
         opcode: "sensing_askandwait",
-        inputs: Vec::from([("QUESTION", question.0)]),
+        inputs: Box::new([("QUESTION", question.0)]),
         fields: None,
     }
 }
@@ -176,7 +176,7 @@ pub fn ask(question: Operand) -> Stacking {
 pub fn broadcast_and_wait(message: Operand) -> Stacking {
     Stacking {
         opcode: "event_broadcastandwait",
-        inputs: Vec::from([("BROADCAST_INPUT", message.0)]),
+        inputs: Box::new([("BROADCAST_INPUT", message.0)]),
         fields: None,
     }
 }
@@ -185,7 +185,7 @@ pub fn broadcast_and_wait(message: Operand) -> Stacking {
 pub fn change_variable(variable: VariableRef, by: Operand) -> Stacking {
     Stacking {
         opcode: "data_changevariableby",
-        inputs: Vec::from([("VALUE", by.0)]),
+        inputs: Box::new([("VALUE", by.0)]),
         fields: Some(Fields::Variable(variable)),
     }
 }
@@ -194,7 +194,7 @@ pub fn change_variable(variable: VariableRef, by: Operand) -> Stacking {
 pub fn change_x(dx: Operand) -> Stacking {
     Stacking {
         opcode: "motion_changexby",
-        inputs: Vec::from([("DX", dx.0)]),
+        inputs: Box::new([("DX", dx.0)]),
         fields: None,
     }
 }
@@ -203,16 +203,16 @@ pub fn change_x(dx: Operand) -> Stacking {
 pub fn change_y(dy: Operand) -> Stacking {
     Stacking {
         opcode: "motion_changeyby",
-        inputs: Vec::from([("DY", dy.0)]),
+        inputs: Box::new([("DY", dy.0)]),
         fields: None,
     }
 }
 
 #[must_use]
-pub const fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
+pub fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
     Stacking {
         opcode: "data_deletealloflist",
-        inputs: Vec::new(),
+        inputs: Box::new([]),
         fields: Some(Fields::List(list)),
     }
 }
@@ -221,13 +221,13 @@ pub const fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
 pub fn delete_of_list(list: ListRef, index: Operand) -> Stacking {
     Stacking {
         opcode: "data_deleteoflist",
-        inputs: Vec::from([("INDEX", index.0)]),
+        inputs: Box::new([("INDEX", index.0)]),
         fields: Some(Fields::List(list)),
     }
 }
 
 #[must_use]
-pub const fn erase_all() -> Stacking<'static> {
+pub fn erase_all() -> Stacking<'static> {
     Stacking::new("pen_clear")
 }
 
@@ -235,7 +235,7 @@ pub const fn erase_all() -> Stacking<'static> {
 pub fn go_to_back_layer() -> Stacking<'static> {
     Stacking {
         opcode: "looks_gotofrontback",
-        inputs: Vec::from([("FRONT_BACK", Input::String("back"))]),
+        inputs: Box::new([("FRONT_BACK", Input::String("back"))]),
         fields: None,
     }
 }
@@ -244,7 +244,7 @@ pub fn go_to_back_layer() -> Stacking<'static> {
 pub fn go_to_front_layer() -> Stacking<'static> {
     Stacking {
         opcode: "looks_gotofrontback",
-        inputs: Vec::from([("FRONT_BACK", Input::String("front"))]),
+        inputs: Box::new([("FRONT_BACK", Input::String("front"))]),
         fields: None,
     }
 }
@@ -253,13 +253,13 @@ pub fn go_to_front_layer() -> Stacking<'static> {
 pub fn go_to_xy<'strings>(x: Operand<'strings>, y: Operand<'strings>) -> Stacking<'strings> {
     Stacking {
         opcode: "motion_gotoxy",
-        inputs: Vec::from([("X", x.0), ("Y", y.0)]),
+        inputs: Box::new([("X", x.0), ("Y", y.0)]),
         fields: None,
     }
 }
 
 #[must_use]
-pub const fn hide() -> Stacking<'static> {
+pub fn hide() -> Stacking<'static> {
     Stacking::new("looks_hide")
 }
 
@@ -271,7 +271,7 @@ pub fn insert_at_list<'strings>(
 ) -> Stacking<'strings> {
     Stacking {
         opcode: "data_insertatlist",
-        inputs: Vec::from([("ITEM", item.0), ("INDEX", index.0)]),
+        inputs: Box::new([("ITEM", item.0), ("INDEX", index.0)]),
         fields: Some(Fields::List(list)),
     }
 }
@@ -280,18 +280,18 @@ pub fn insert_at_list<'strings>(
 pub fn move_steps(steps: Operand) -> Stacking {
     Stacking {
         opcode: "motion_movesteps",
-        inputs: Vec::from([("STEPS", steps.0)]),
+        inputs: Box::new([("STEPS", steps.0)]),
         fields: None,
     }
 }
 
 #[must_use]
-pub const fn pen_down() -> Stacking<'static> {
+pub fn pen_down() -> Stacking<'static> {
     Stacking::new("pen_penDown")
 }
 
 #[must_use]
-pub const fn pen_up() -> Stacking<'static> {
+pub fn pen_up() -> Stacking<'static> {
     Stacking::new("pen_penUp")
 }
 
@@ -303,13 +303,13 @@ pub fn replace<'strings>(
 ) -> Stacking<'strings> {
     Stacking {
         opcode: "data_replaceitemoflist",
-        inputs: Vec::from([("INDEX", index.0), ("ITEM", item.0)]),
+        inputs: Box::new([("INDEX", index.0), ("ITEM", item.0)]),
         fields: Some(Fields::List(list)),
     }
 }
 
 #[must_use]
-pub const fn reset_timer() -> Stacking<'static> {
+pub fn reset_timer() -> Stacking<'static> {
     Stacking::new("sensing_resettimer")
 }
 
@@ -317,7 +317,7 @@ pub const fn reset_timer() -> Stacking<'static> {
 pub fn say(message: Operand) -> Stacking {
     Stacking {
         opcode: "looks_say",
-        inputs: Vec::from([("MESSAGE", message.0)]),
+        inputs: Box::new([("MESSAGE", message.0)]),
         fields: None,
     }
 }
@@ -329,7 +329,7 @@ pub fn say_for_seconds<'strings>(
 ) -> Stacking<'strings> {
     Stacking {
         opcode: "looks_say",
-        inputs: Vec::from([("SECS", seconds.0), ("MESSAGE", message.0)]),
+        inputs: Box::new([("SECS", seconds.0), ("MESSAGE", message.0)]),
         fields: None,
     }
 }
@@ -338,7 +338,7 @@ pub fn say_for_seconds<'strings>(
 pub fn set_costume(costume: Operand) -> Stacking {
     Stacking {
         opcode: "looks_switchcostumeto",
-        inputs: Vec::from([("COSTUME", costume.0)]),
+        inputs: Box::new([("COSTUME", costume.0)]),
         fields: None,
     }
 }
@@ -347,7 +347,7 @@ pub fn set_costume(costume: Operand) -> Stacking {
 pub fn set_pen_color(color: Operand) -> Stacking {
     Stacking {
         opcode: "pen_setPenColorTo",
-        inputs: Vec::from([("COLOR", color.0)]),
+        inputs: Box::new([("COLOR", color.0)]),
         fields: None,
     }
 }
@@ -356,7 +356,7 @@ pub fn set_pen_color(color: Operand) -> Stacking {
 pub fn set_pen_size(size: Operand) -> Stacking {
     Stacking {
         opcode: "pen_setPenSizeTo",
-        inputs: Vec::from([("SIZE", size.0)]),
+        inputs: Box::new([("SIZE", size.0)]),
         fields: None,
     }
 }
@@ -365,7 +365,7 @@ pub fn set_pen_size(size: Operand) -> Stacking {
 pub fn set_size(size: Operand) -> Stacking {
     Stacking {
         opcode: "looks_setsizeto",
-        inputs: Vec::from([("SIZE", size.0)]),
+        inputs: Box::new([("SIZE", size.0)]),
         fields: None,
     }
 }
@@ -374,7 +374,7 @@ pub fn set_size(size: Operand) -> Stacking {
 pub fn set_variable(variable: VariableRef, to: Operand) -> Stacking {
     Stacking {
         opcode: "data_setvariableto",
-        inputs: Vec::from([("VALUE", to.0)]),
+        inputs: Box::new([("VALUE", to.0)]),
         fields: Some(Fields::Variable(variable)),
     }
 }
@@ -383,7 +383,7 @@ pub fn set_variable(variable: VariableRef, to: Operand) -> Stacking {
 pub fn set_x(x: Operand) -> Stacking {
     Stacking {
         opcode: "motion_setx",
-        inputs: Vec::from([("X", x.0)]),
+        inputs: Box::new([("X", x.0)]),
         fields: None,
     }
 }
@@ -392,35 +392,35 @@ pub fn set_x(x: Operand) -> Stacking {
 pub fn set_y(y: Operand) -> Stacking {
     Stacking {
         opcode: "motion_sety",
-        inputs: Vec::from([("Y", y.0)]),
+        inputs: Box::new([("Y", y.0)]),
         fields: None,
     }
 }
 
 #[must_use]
-pub const fn show() -> Stacking<'static> {
+pub fn show() -> Stacking<'static> {
     Stacking::new("looks_show")
 }
 
 #[must_use]
-pub const fn stamp() -> Stacking<'static> {
+pub fn stamp() -> Stacking<'static> {
     Stacking::new("pen_stamp")
 }
 
 #[must_use]
-pub const fn stop_all() -> Stacking<'static> {
+pub fn stop_all() -> Stacking<'static> {
     Stacking {
         opcode: "control_stop",
-        inputs: Vec::new(),
+        inputs: Box::new([]),
         fields: Some(Fields::StopAll),
     }
 }
 
 #[must_use]
-pub const fn stop_this_script() -> Stacking<'static> {
+pub fn stop_this_script() -> Stacking<'static> {
     Stacking {
         opcode: "control_stop",
-        inputs: Vec::new(),
+        inputs: Box::new([]),
         fields: Some(Fields::StopThisScript),
     }
 }
@@ -429,7 +429,7 @@ pub const fn stop_this_script() -> Stacking<'static> {
 pub fn wait(seconds: Operand) -> Stacking {
     Stacking {
         opcode: "control_wait",
-        inputs: Vec::from([("DURATION", seconds.0)]),
+        inputs: Box::new([("DURATION", seconds.0)]),
         fields: None,
     }
 }
