@@ -90,6 +90,7 @@ struct RealTarget<'strings> {
     lists: Vec<List<'strings>>,
     blocks: Vec<block::Block<'strings>>,
     fields: Vec<Fields<'strings>>,
+    mutations: Vec<Mutation>,
     parameters: Vec<Parameter>,
     custom_blocks: Vec<CustomBlock>,
     comments: Vec<Comment>,
@@ -126,6 +127,7 @@ impl RealTarget<'_> {
         }
         write!(writer, r#"}},"blocks":{{"#)?;
         let mut fields = self.fields.iter().copied();
+        let mut mutations = self.mutations.iter().copied();
         for (i, block) in self.blocks.iter().enumerate() {
             if i != 0 {
                 write!(writer, ",")?;
@@ -135,7 +137,12 @@ impl RealTarget<'_> {
                 .opcode
                 .has_fields()
                 .then(|| fields.next().unwrap_or_else(|| unreachable!()));
-            block.serialize(fields, self, writer)?;
+            let mutation = matches!(
+                block.opcode,
+                Opcode::procedures_call | Opcode::procedures_prototype
+            )
+            .then(|| mutations.next().unwrap_or_else(|| unreachable!()));
+            block.serialize(fields, mutation, self, writer)?;
         }
         write!(writer, r#"}},"comments":{{"#)?;
         for (i, comment) in self.comments.iter().enumerate() {
@@ -159,6 +166,7 @@ impl<'strings> RealTarget<'strings> {
             lists: Vec::new(),
             blocks: Vec::new(),
             fields: Vec::new(),
+            mutations: Vec::new(),
             parameters: Vec::new(),
             custom_blocks: Vec::new(),
             comments: Vec::new(),
@@ -232,12 +240,12 @@ impl<'strings> Target<'strings, '_> {
         });
 
         let definition = block::Id(self.inner.blocks.len() + 1);
+        self.inner.mutations.push(Mutation(CustomBlockRef(index)));
         let prototype = self.insert(Block {
             opcode: Opcode::procedures_prototype,
             parent: Some(definition),
             next: None,
             inputs,
-            mutation: Mutation(CustomBlockRef(index)),
         });
 
         self.inner.blocks.push(Block {
@@ -245,7 +253,6 @@ impl<'strings> Target<'strings, '_> {
             parent: None,
             next: None,
             inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
-            mutation: Mutation::NONE,
         });
 
         let point = InsertionPoint {
@@ -263,12 +270,12 @@ impl<'strings> Target<'strings, '_> {
             .zip(arguments.into_iter().map(|arg| arg.0))
             .collect();
 
+        self.inner.mutations.push(Mutation(block));
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
             parent: self.point.parent,
             next: None,
             inputs,
-            mutation: Mutation(block),
         });
         self.set_next(id);
         self.point = InsertionPoint {
@@ -307,7 +314,6 @@ impl<'strings> Target<'strings, '_> {
             parent: None,
             next: None,
             inputs: Box::new([]),
-            mutation: Mutation::NONE,
         });
         self.point = InsertionPoint {
             parent: Some(id),
@@ -322,7 +328,6 @@ impl<'strings> Target<'strings, '_> {
             parent: self.point.parent,
             next: None,
             inputs: block.inputs,
-            mutation: Mutation::NONE,
         });
         self.set_next(id);
         self.point = InsertionPoint {
@@ -691,8 +696,6 @@ pub struct CustomBlockRef(usize);
 struct Mutation(CustomBlockRef);
 
 impl Mutation {
-    const NONE: Self = Self(CustomBlockRef(0));
-
     fn serialize(
         self,
         is_prototype: bool,

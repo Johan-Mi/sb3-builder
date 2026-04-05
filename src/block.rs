@@ -6,13 +6,13 @@ pub(crate) struct Block<'strings> {
     pub(crate) parent: Option<Id>,
     pub(crate) next: Option<Id>,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
-    pub(crate) mutation: Mutation,
 }
 
 impl<'strings> Block<'strings> {
     pub fn serialize(
         &self,
         fields: Option<Fields>,
+        mutation: Option<Mutation>,
         target: &RealTarget,
         writer: &mut dyn io::Write,
     ) -> io::Result<()> {
@@ -53,13 +53,10 @@ impl<'strings> Block<'strings> {
             write!(writer, r#","fields":"#)?;
             fields.serialize(target, writer)?;
         }
-        if matches!(
-            self.opcode,
-            Opcode::procedures_prototype | Opcode::procedures_call
-        ) {
+        if let Some(mutation) = mutation {
             write!(writer, r#","mutation":"#)?;
             let is_prototype = matches!(self.opcode, Opcode::procedures_prototype);
-            self.mutation.serialize(is_prototype, target, writer)?;
+            mutation.serialize(is_prototype, target, writer)?;
         }
         if matches!(self.opcode, Opcode::control_create_clone_of_menu) {
             write!(writer, r#","shadow":true"#)?;
@@ -73,7 +70,6 @@ impl<'strings> Block<'strings> {
             parent: None,
             next: None,
             inputs: Box::new([]),
-            mutation: Mutation::NONE,
         }
     }
 
