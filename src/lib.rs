@@ -274,11 +274,17 @@ impl<'strings> Target<'strings, '_> {
         (CustomBlockRef(index), point)
     }
 
+    /// # Panics
+    ///
+    /// Panics if no script has been started.
     pub fn use_custom_block(&mut self, block: CustomBlockRef, arguments: Vec<Operand<'strings>>) {
         self.inner.mutations.push(Mutation(block));
+        let (Place::After(parent) | Place::Inside { block: parent, .. }) = self.place else {
+            panic!("cannot put block when no script has been started");
+        };
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
-            parent: self.place.parent(),
+            parent: parent.into(),
             next: None.into(),
         });
         self.add_inputs(
@@ -332,9 +338,12 @@ impl<'strings> Target<'strings, '_> {
 
     fn put_(&mut self, block: block::Stacking<'strings>) -> block::Id {
         self.inner.fields.extend(block.fields);
+        let (Place::After(parent) | Place::Inside { block: parent, .. }) = self.place else {
+            panic!("cannot put block when no script has been started");
+        };
         let id = self.insert(Block {
             opcode: block.opcode,
-            parent: self.place.parent(),
+            parent: parent.into(),
             next: None.into(),
         });
         self.add_inputs(id, block.inputs);
@@ -652,15 +661,6 @@ enum Place {
     Nowhere,
     After(block::Id),
     Inside { block: block::Id, input: usize },
-}
-
-impl Place {
-    fn parent(self) -> block::OptionId {
-        match self {
-            Self::Nowhere => None.into(),
-            Self::After(block) | Self::Inside { block, .. } => block.into(),
-        }
-    }
 }
 
 pub enum Constant<'strings> {
