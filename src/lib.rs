@@ -31,10 +31,7 @@ impl<'strings> Project<'strings> {
     fn target(&mut self, index: usize) -> Target<'strings, '_> {
         Target {
             inner: &mut self.targets[index],
-            point: InsertionPoint {
-                parent: None.into(),
-                place: Place::Next,
-            },
+            place: Place::Nowhere,
         }
     }
 
@@ -201,7 +198,7 @@ impl Comment {
 
 pub struct Target<'strings, 'project> {
     inner: &'project mut RealTarget<'strings>,
-    point: InsertionPoint,
+    place: Place,
 }
 
 impl<'strings> Target<'strings, '_> {
@@ -225,8 +222,16 @@ impl<'strings> Target<'strings, '_> {
         ListRef(id)
     }
 
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "`InsertionPoint` is intentionally impossible to copy"
+    )]
     pub const fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
-        std::mem::replace(&mut self.point, point)
+        self.insert_at_(point.0)
+    }
+
+    const fn insert_at_(&mut self, place: Place) -> InsertionPoint {
+        InsertionPoint(std::mem::replace(&mut self.place, place))
     }
 
     pub fn add_custom_block(
@@ -265,10 +270,7 @@ impl<'strings> Target<'strings, '_> {
             next: None.into(),
         });
 
-        let point = InsertionPoint {
-            parent: definition.into(),
-            place: Place::Next,
-        };
+        let point = InsertionPoint(Place::After(definition));
         (CustomBlockRef(index), point)
     }
 
@@ -276,7 +278,7 @@ impl<'strings> Target<'strings, '_> {
         self.inner.mutations.push(Mutation(block));
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
-            parent: self.point.parent,
+            parent: self.place.parent(),
             next: None.into(),
         });
         self.add_inputs(
@@ -288,10 +290,7 @@ impl<'strings> Target<'strings, '_> {
                 .zip(arguments.into_iter().map(|arg| arg.0)),
         );
         self.set_next(id);
-        self.point = InsertionPoint {
-            parent: id.into(),
-            place: Place::Next,
-        };
+        self.place = Place::After(id);
     }
 
     /// # Panics
@@ -324,66 +323,59 @@ impl<'strings> Target<'strings, '_> {
             parent: None.into(),
             next: None.into(),
         });
-        self.point = InsertionPoint {
-            parent: id.into(),
-            place: Place::Next,
-        };
+        self.place = Place::After(id);
     }
 
     pub fn put(&mut self, block: block::Stacking<'strings>) {
+        let _: block::Id = self.put_(block);
+    }
+
+    fn put_(&mut self, block: block::Stacking<'strings>) -> block::Id {
         self.inner.fields.extend(block.fields);
         let id = self.insert(Block {
             opcode: block.opcode,
-            parent: self.point.parent,
+            parent: self.place.parent(),
             next: None.into(),
         });
         self.add_inputs(id, block.inputs);
         self.set_next(id);
-        self.point = InsertionPoint {
-            parent: id.into(),
-            place: Place::Next,
-        };
+        self.place = Place::After(id);
+        id
     }
 
     pub fn forever(&mut self) {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_forever,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack)]),
             fields: None,
         });
-        self.point.place = Place::Substack { input };
+        self.place = Place::Inside { block, input };
     }
 
     pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_repeat,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("TIMES", times.0)]),
             fields: None,
         });
-        self.insert_at(InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input },
-        })
+        self.insert_at_(Place::Inside { block, input })
     }
 
     pub fn for_(&mut self, variable: VariableRef, times: Operand<'strings>) -> InsertionPoint {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_for_each,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("VALUE", times.0)]),
             fields: Some(Fields::Variable(variable)),
         });
-        self.insert_at(InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input },
-        })
+        self.insert_at_(Place::Inside { block, input })
     }
 
     pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_if,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
@@ -391,15 +383,12 @@ impl<'strings> Target<'strings, '_> {
             ]),
             fields: None,
         });
-        self.insert_at(InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input },
-        })
+        self.insert_at_(Place::Inside { block, input })
     }
 
     pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint; 2] {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_if_else,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
@@ -408,20 +397,17 @@ impl<'strings> Target<'strings, '_> {
             ]),
             fields: None,
         });
-        let after = self.insert_at(InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input },
+        let after = self.insert_at_(Place::Inside { block, input });
+        let else_ = InsertionPoint(Place::Inside {
+            block,
+            input: input + 1,
         });
-        let else_ = InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input: input + 1 },
-        };
         [after, else_]
     }
 
     pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_while,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
@@ -429,15 +415,12 @@ impl<'strings> Target<'strings, '_> {
             ]),
             fields: None,
         });
-        self.insert_at(InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input },
-        })
+        self.insert_at_(Place::Inside { block, input })
     }
 
     pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         let input = self.inner.inputs.len();
-        self.put(block::Stacking {
+        let block = self.put_(block::Stacking {
             opcode: Opcode::control_repeat_until,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
@@ -445,10 +428,7 @@ impl<'strings> Target<'strings, '_> {
             ]),
             fields: None,
         });
-        self.insert_at(InsertionPoint {
-            parent: self.point.parent,
-            place: Place::Substack { input },
-        })
+        self.insert_at_(Place::Inside { block, input })
     }
 
     pub fn add(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
@@ -645,13 +625,10 @@ impl<'strings> Target<'strings, '_> {
     }
 
     fn set_next(&mut self, next: block::Id) {
-        let Some(parent) = self.point.parent.get() else {
-            return;
-        };
-        let parent = &mut self.inner.blocks[parent.0];
-        match self.point.place {
-            Place::Next => parent.next = next.into(),
-            Place::Substack { input } => self.inner.inputs[input].1 = Input::Substack(next),
+        match self.place {
+            Place::Nowhere => {}
+            Place::After(block) => self.inner.blocks[block.0].parent = next.into(),
+            Place::Inside { input, .. } => self.inner.inputs[input].1 = Input::Substack(next),
         }
     }
 
@@ -668,14 +645,22 @@ impl<'strings> Target<'strings, '_> {
     }
 }
 
-pub struct InsertionPoint {
-    parent: block::OptionId,
-    place: Place,
+pub struct InsertionPoint(Place);
+
+#[derive(Clone, Copy)]
+enum Place {
+    Nowhere,
+    After(block::Id),
+    Inside { block: block::Id, input: usize },
 }
 
-enum Place {
-    Next,
-    Substack { input: usize },
+impl Place {
+    fn parent(self) -> block::OptionId {
+        match self {
+            Self::Nowhere => None.into(),
+            Self::After(block) | Self::Inside { block, .. } => block.into(),
+        }
+    }
 }
 
 pub enum Constant<'strings> {
