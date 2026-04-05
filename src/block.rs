@@ -25,9 +25,18 @@ impl<'strings> Block<'strings> {
             write!(writer, "null")
         }?;
         write!(writer, r#","topLevel":{}"#, self.parent.is_none())?;
-        if !self.inputs.is_empty() {
+        if self
+            .inputs
+            .iter()
+            .any(|(_, it)| !matches!(it, Input::EmptySubstack))
+        {
             write!(writer, r#","inputs":{{"#)?;
-            for (i, (name, input)) in self.inputs.iter().enumerate() {
+            for (i, (name, input)) in self
+                .inputs
+                .iter()
+                .filter(|(_, it)| !matches!(it, Input::EmptySubstack))
+                .enumerate()
+            {
                 if i != 0 {
                     write!(writer, ",")?;
                 }
@@ -436,6 +445,7 @@ pub fn wait(seconds: Operand) -> Stacking {
 
 pub(crate) enum Input<'strings> {
     Substack(Id),
+    EmptySubstack,
     Number(f64),
     String(&'strings str),
     Variable(VariableRef),
@@ -447,6 +457,7 @@ impl Input<'_> {
     fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
         match *self {
             Self::Substack(uid) => write!(writer, "[2,{uid}]"),
+            Self::EmptySubstack => unreachable!(),
             Self::Number(n) if n == f64::INFINITY => write!(writer, r#"[1,[4,"Infinity"]]"#),
             Self::Number(n) if n == f64::NEG_INFINITY => write!(writer, r#"[1,[4,"-Infinity"]]"#),
             Self::Number(n) if n.is_nan() => write!(writer, r#"[1,[4,"NaN"]]"#),

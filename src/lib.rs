@@ -353,14 +353,18 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn forever(&mut self) {
-        self.put(block::Stacking::new("control_forever"));
+        self.put(block::Stacking {
+            opcode: "control_forever",
+            inputs: Box::new([("SUBSTACK", Input::EmptySubstack)]),
+            fields: None,
+        });
         self.point.place = Place::Substack1;
     }
 
     pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_repeat",
-            inputs: Box::new([("TIMES", times.0)]),
+            inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("TIMES", times.0)]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -372,7 +376,7 @@ impl<'strings> Target<'strings, '_> {
     pub fn for_(&mut self, variable: VariableRef, times: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_for_each",
-            inputs: Box::new([("VALUE", times.0)]),
+            inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("VALUE", times.0)]),
             fields: Some(Fields::Variable(variable)),
         });
         self.insert_at(InsertionPoint {
@@ -384,7 +388,10 @@ impl<'strings> Target<'strings, '_> {
     pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_if",
-            inputs: Box::new([("CONDITION", condition.0)]),
+            inputs: Box::new([
+                ("SUBSTACK", Input::EmptySubstack),
+                ("CONDITION", condition.0),
+            ]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -396,7 +403,11 @@ impl<'strings> Target<'strings, '_> {
     pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint; 2] {
         self.put(block::Stacking {
             opcode: "control_if_else",
-            inputs: Box::new([("CONDITION", condition.0)]),
+            inputs: Box::new([
+                ("SUBSTACK", Input::EmptySubstack),
+                ("SUBSTACK2", Input::EmptySubstack),
+                ("CONDITION", condition.0),
+            ]),
             fields: None,
         });
         let after = self.insert_at(InsertionPoint {
@@ -413,7 +424,10 @@ impl<'strings> Target<'strings, '_> {
     pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_while",
-            inputs: Box::new([("CONDITION", condition.0)]),
+            inputs: Box::new([
+                ("SUBSTACK", Input::EmptySubstack),
+                ("CONDITION", condition.0),
+            ]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -425,7 +439,10 @@ impl<'strings> Target<'strings, '_> {
     pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
             opcode: "control_repeat_until",
-            inputs: Box::new([("CONDITION", condition.0)]),
+            inputs: Box::new([
+                ("SUBSTACK", Input::EmptySubstack),
+                ("CONDITION", condition.0),
+            ]),
             fields: None,
         });
         self.insert_at(InsertionPoint {
@@ -603,16 +620,8 @@ impl<'strings> Target<'strings, '_> {
         let parent = &mut self.inner.blocks[parent.0];
         match self.point.place {
             Place::Next => parent.next = Some(next),
-            Place::Substack1 => {
-                let mut inputs = std::mem::take(&mut parent.inputs).into_vec();
-                inputs.push(("SUBSTACK", Input::Substack(next)));
-                parent.inputs = inputs.into();
-            }
-            Place::Substack2 => {
-                let mut inputs = std::mem::take(&mut parent.inputs).into_vec();
-                inputs.push(("SUBSTACK2", Input::Substack(next)));
-                parent.inputs = inputs.into();
-            }
+            Place::Substack1 => parent.inputs[0].1 = Input::Substack(next),
+            Place::Substack2 => parent.inputs[1].1 = Input::Substack(next),
         }
     }
 }
