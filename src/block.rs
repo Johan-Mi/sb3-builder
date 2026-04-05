@@ -7,7 +7,7 @@ pub(crate) struct Block<'strings> {
     pub(crate) next: Option<Id>,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
     pub(crate) fields: Option<Fields<'strings>>,
-    pub(crate) mutation: Option<Mutation>,
+    pub(crate) mutation: Mutation,
 }
 
 impl<'strings> Block<'strings> {
@@ -49,10 +49,13 @@ impl<'strings> Block<'strings> {
             write!(writer, r#","fields":"#)?;
             fields.serialize(target, writer)?;
         }
-        if let Some(mutation) = &self.mutation {
+        if matches!(
+            self.opcode,
+            Opcode::procedures_prototype | Opcode::procedures_call
+        ) {
             write!(writer, r#","mutation":"#)?;
             let is_prototype = matches!(self.opcode, Opcode::procedures_prototype);
-            mutation.serialize(is_prototype, target, writer)?;
+            self.mutation.serialize(is_prototype, target, writer)?;
         }
         if matches!(self.opcode, Opcode::control_create_clone_of_menu) {
             write!(writer, r#","shadow":true"#)?;
@@ -67,7 +70,7 @@ impl<'strings> Block<'strings> {
             next: None,
             inputs: Box::new([]),
             fields: None,
-            mutation: None,
+            mutation: Mutation::NONE,
         }
     }
 
@@ -98,7 +101,7 @@ impl<'strings> From<Hat<'strings>> for Block<'strings> {
             next: None,
             inputs: Box::new([]),
             fields: hat.fields,
-            mutation: None,
+            mutation: Mutation::NONE,
         }
     }
 }
@@ -117,7 +120,7 @@ impl<'strings> From<Stacking<'strings>> for Block<'strings> {
             next: None,
             inputs: stacking.inputs,
             fields: stacking.fields,
-            mutation: None,
+            mutation: Mutation::NONE,
         }
     }
 }

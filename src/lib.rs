@@ -225,7 +225,7 @@ impl<'strings> Target<'strings, '_> {
             next: None,
             inputs,
             fields: None,
-            mutation: Some(Mutation(CustomBlockRef(index))),
+            mutation: Mutation(CustomBlockRef(index)),
         });
 
         self.inner.blocks.push(
@@ -258,7 +258,7 @@ impl<'strings> Target<'strings, '_> {
             next: None,
             inputs,
             fields: None,
-            mutation: Some(Mutation(block)),
+            mutation: Mutation(block),
         });
         self.set_next(id);
         self.point = InsertionPoint {
@@ -661,6 +661,8 @@ pub struct CustomBlockRef(usize);
 struct Mutation(CustomBlockRef);
 
 impl Mutation {
+    const NONE: Self = Self(CustomBlockRef(0));
+
     fn serialize(
         self,
         is_prototype: bool,
