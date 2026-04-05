@@ -2,7 +2,7 @@ use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
 use std::{fmt, io};
 
 pub(crate) struct Block<'strings> {
-    pub(crate) opcode: &'static str,
+    pub(crate) opcode: Opcode,
     pub(crate) parent: Option<Id>,
     pub(crate) next: Option<Id>,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
@@ -12,7 +12,7 @@ pub(crate) struct Block<'strings> {
 
 impl<'strings> Block<'strings> {
     pub fn serialize(&self, target: &RealTarget, writer: &mut dyn io::Write) -> io::Result<()> {
-        write!(writer, r#"{{"opcode":{:?},"parent":"#, self.opcode)?;
+        write!(writer, r#"{{"opcode":"{:?}","parent":"#, self.opcode)?;
         if let Some(parent) = self.parent {
             write!(writer, "{parent}")
         } else {
@@ -53,13 +53,13 @@ impl<'strings> Block<'strings> {
             write!(writer, r#","mutation":"#)?;
             mutation.serialize(writer)?;
         }
-        if self.opcode == "control_create_clone_of_menu" {
+        if matches!(self.opcode, Opcode::control_create_clone_of_menu) {
             write!(writer, r#","shadow":true"#)?;
         }
         write!(writer, "}}")
     }
 
-    pub(crate) fn new(opcode: &'static str) -> Self {
+    pub(crate) fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
             parent: None,
@@ -85,7 +85,7 @@ impl<'strings> Block<'strings> {
 }
 
 pub struct Hat<'strings> {
-    opcode: &'static str,
+    opcode: Opcode,
     fields: Option<Fields<'strings>>,
 }
 
@@ -103,7 +103,7 @@ impl<'strings> From<Hat<'strings>> for Block<'strings> {
 }
 
 pub struct Stacking<'strings> {
-    pub(crate) opcode: &'static str,
+    pub(crate) opcode: Opcode,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
     pub(crate) fields: Option<Fields<'strings>>,
 }
@@ -122,7 +122,7 @@ impl<'strings> From<Stacking<'strings>> for Block<'strings> {
 }
 
 impl Stacking<'_> {
-    pub(crate) fn new(opcode: &'static str) -> Self {
+    pub(crate) fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
             inputs: Box::new([]),
@@ -134,7 +134,7 @@ impl Stacking<'_> {
 #[must_use]
 pub const fn when_flag_clicked() -> Hat<'static> {
     Hat {
-        opcode: "event_whenflagclicked",
+        opcode: Opcode::event_whenflagclicked,
         fields: None,
     }
 }
@@ -142,7 +142,7 @@ pub const fn when_flag_clicked() -> Hat<'static> {
 #[must_use]
 pub const fn when_key_pressed(key: &str) -> Hat<'_> {
     Hat {
-        opcode: "event_whenkeypressed",
+        opcode: Opcode::event_whenkeypressed,
         fields: Some(Fields::KeyOption(key)),
     }
 }
@@ -150,7 +150,7 @@ pub const fn when_key_pressed(key: &str) -> Hat<'_> {
 #[must_use]
 pub const fn when_cloned() -> Hat<'static> {
     Hat {
-        opcode: "control_start_as_clone",
+        opcode: Opcode::control_start_as_clone,
         fields: None,
     }
 }
@@ -158,7 +158,7 @@ pub const fn when_cloned() -> Hat<'static> {
 #[must_use]
 pub const fn when_received(message: &str) -> Hat<'_> {
     Hat {
-        opcode: "event_whenbroadcastreceived",
+        opcode: Opcode::event_whenbroadcastreceived,
         fields: Some(Fields::BroadcastOption(message)),
     }
 }
@@ -166,7 +166,7 @@ pub const fn when_received(message: &str) -> Hat<'_> {
 #[must_use]
 pub fn append(list: ListRef, item: Operand) -> Stacking {
     Stacking {
-        opcode: "data_addtolist",
+        opcode: Opcode::data_addtolist,
         inputs: Box::new([("ITEM", item.0)]),
         fields: Some(Fields::List(list)),
     }
@@ -175,7 +175,7 @@ pub fn append(list: ListRef, item: Operand) -> Stacking {
 #[must_use]
 pub fn ask(question: Operand) -> Stacking {
     Stacking {
-        opcode: "sensing_askandwait",
+        opcode: Opcode::sensing_askandwait,
         inputs: Box::new([("QUESTION", question.0)]),
         fields: None,
     }
@@ -184,7 +184,7 @@ pub fn ask(question: Operand) -> Stacking {
 #[must_use]
 pub fn broadcast_and_wait(message: Operand) -> Stacking {
     Stacking {
-        opcode: "event_broadcastandwait",
+        opcode: Opcode::event_broadcastandwait,
         inputs: Box::new([("BROADCAST_INPUT", message.0)]),
         fields: None,
     }
@@ -193,7 +193,7 @@ pub fn broadcast_and_wait(message: Operand) -> Stacking {
 #[must_use]
 pub fn change_variable(variable: VariableRef, by: Operand) -> Stacking {
     Stacking {
-        opcode: "data_changevariableby",
+        opcode: Opcode::data_changevariableby,
         inputs: Box::new([("VALUE", by.0)]),
         fields: Some(Fields::Variable(variable)),
     }
@@ -202,7 +202,7 @@ pub fn change_variable(variable: VariableRef, by: Operand) -> Stacking {
 #[must_use]
 pub fn change_x(dx: Operand) -> Stacking {
     Stacking {
-        opcode: "motion_changexby",
+        opcode: Opcode::motion_changexby,
         inputs: Box::new([("DX", dx.0)]),
         fields: None,
     }
@@ -211,7 +211,7 @@ pub fn change_x(dx: Operand) -> Stacking {
 #[must_use]
 pub fn change_y(dy: Operand) -> Stacking {
     Stacking {
-        opcode: "motion_changeyby",
+        opcode: Opcode::motion_changeyby,
         inputs: Box::new([("DY", dy.0)]),
         fields: None,
     }
@@ -220,7 +220,7 @@ pub fn change_y(dy: Operand) -> Stacking {
 #[must_use]
 pub fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
     Stacking {
-        opcode: "data_deletealloflist",
+        opcode: Opcode::data_deletealloflist,
         inputs: Box::new([]),
         fields: Some(Fields::List(list)),
     }
@@ -229,7 +229,7 @@ pub fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
 #[must_use]
 pub fn delete_of_list(list: ListRef, index: Operand) -> Stacking {
     Stacking {
-        opcode: "data_deleteoflist",
+        opcode: Opcode::data_deleteoflist,
         inputs: Box::new([("INDEX", index.0)]),
         fields: Some(Fields::List(list)),
     }
@@ -237,13 +237,13 @@ pub fn delete_of_list(list: ListRef, index: Operand) -> Stacking {
 
 #[must_use]
 pub fn erase_all() -> Stacking<'static> {
-    Stacking::new("pen_clear")
+    Stacking::new(Opcode::pen_clear)
 }
 
 #[must_use]
 pub fn go_to_back_layer() -> Stacking<'static> {
     Stacking {
-        opcode: "looks_gotofrontback",
+        opcode: Opcode::looks_gotofrontback,
         inputs: Box::new([("FRONT_BACK", Input::String("back"))]),
         fields: None,
     }
@@ -252,7 +252,7 @@ pub fn go_to_back_layer() -> Stacking<'static> {
 #[must_use]
 pub fn go_to_front_layer() -> Stacking<'static> {
     Stacking {
-        opcode: "looks_gotofrontback",
+        opcode: Opcode::looks_gotofrontback,
         inputs: Box::new([("FRONT_BACK", Input::String("front"))]),
         fields: None,
     }
@@ -261,7 +261,7 @@ pub fn go_to_front_layer() -> Stacking<'static> {
 #[must_use]
 pub fn go_to_xy<'strings>(x: Operand<'strings>, y: Operand<'strings>) -> Stacking<'strings> {
     Stacking {
-        opcode: "motion_gotoxy",
+        opcode: Opcode::motion_gotoxy,
         inputs: Box::new([("X", x.0), ("Y", y.0)]),
         fields: None,
     }
@@ -269,7 +269,7 @@ pub fn go_to_xy<'strings>(x: Operand<'strings>, y: Operand<'strings>) -> Stackin
 
 #[must_use]
 pub fn hide() -> Stacking<'static> {
-    Stacking::new("looks_hide")
+    Stacking::new(Opcode::looks_hide)
 }
 
 #[must_use]
@@ -279,7 +279,7 @@ pub fn insert_at_list<'strings>(
     index: Operand<'strings>,
 ) -> Stacking<'strings> {
     Stacking {
-        opcode: "data_insertatlist",
+        opcode: Opcode::data_insertatlist,
         inputs: Box::new([("ITEM", item.0), ("INDEX", index.0)]),
         fields: Some(Fields::List(list)),
     }
@@ -288,7 +288,7 @@ pub fn insert_at_list<'strings>(
 #[must_use]
 pub fn move_steps(steps: Operand) -> Stacking {
     Stacking {
-        opcode: "motion_movesteps",
+        opcode: Opcode::motion_movesteps,
         inputs: Box::new([("STEPS", steps.0)]),
         fields: None,
     }
@@ -296,12 +296,12 @@ pub fn move_steps(steps: Operand) -> Stacking {
 
 #[must_use]
 pub fn pen_down() -> Stacking<'static> {
-    Stacking::new("pen_penDown")
+    Stacking::new(Opcode::pen_penDown)
 }
 
 #[must_use]
 pub fn pen_up() -> Stacking<'static> {
-    Stacking::new("pen_penUp")
+    Stacking::new(Opcode::pen_penUp)
 }
 
 #[must_use]
@@ -311,7 +311,7 @@ pub fn replace<'strings>(
     item: Operand<'strings>,
 ) -> Stacking<'strings> {
     Stacking {
-        opcode: "data_replaceitemoflist",
+        opcode: Opcode::data_replaceitemoflist,
         inputs: Box::new([("INDEX", index.0), ("ITEM", item.0)]),
         fields: Some(Fields::List(list)),
     }
@@ -319,13 +319,13 @@ pub fn replace<'strings>(
 
 #[must_use]
 pub fn reset_timer() -> Stacking<'static> {
-    Stacking::new("sensing_resettimer")
+    Stacking::new(Opcode::sensing_resettimer)
 }
 
 #[must_use]
 pub fn say(message: Operand) -> Stacking {
     Stacking {
-        opcode: "looks_say",
+        opcode: Opcode::looks_say,
         inputs: Box::new([("MESSAGE", message.0)]),
         fields: None,
     }
@@ -337,7 +337,7 @@ pub fn say_for_seconds<'strings>(
     message: Operand<'strings>,
 ) -> Stacking<'strings> {
     Stacking {
-        opcode: "looks_say",
+        opcode: Opcode::looks_say,
         inputs: Box::new([("SECS", seconds.0), ("MESSAGE", message.0)]),
         fields: None,
     }
@@ -346,7 +346,7 @@ pub fn say_for_seconds<'strings>(
 #[must_use]
 pub fn set_costume(costume: Operand) -> Stacking {
     Stacking {
-        opcode: "looks_switchcostumeto",
+        opcode: Opcode::looks_switchcostumeto,
         inputs: Box::new([("COSTUME", costume.0)]),
         fields: None,
     }
@@ -355,7 +355,7 @@ pub fn set_costume(costume: Operand) -> Stacking {
 #[must_use]
 pub fn set_pen_color(color: Operand) -> Stacking {
     Stacking {
-        opcode: "pen_setPenColorTo",
+        opcode: Opcode::pen_setPenColorTo,
         inputs: Box::new([("COLOR", color.0)]),
         fields: None,
     }
@@ -364,7 +364,7 @@ pub fn set_pen_color(color: Operand) -> Stacking {
 #[must_use]
 pub fn set_pen_size(size: Operand) -> Stacking {
     Stacking {
-        opcode: "pen_setPenSizeTo",
+        opcode: Opcode::pen_setPenSizeTo,
         inputs: Box::new([("SIZE", size.0)]),
         fields: None,
     }
@@ -373,7 +373,7 @@ pub fn set_pen_size(size: Operand) -> Stacking {
 #[must_use]
 pub fn set_size(size: Operand) -> Stacking {
     Stacking {
-        opcode: "looks_setsizeto",
+        opcode: Opcode::looks_setsizeto,
         inputs: Box::new([("SIZE", size.0)]),
         fields: None,
     }
@@ -382,7 +382,7 @@ pub fn set_size(size: Operand) -> Stacking {
 #[must_use]
 pub fn set_variable(variable: VariableRef, to: Operand) -> Stacking {
     Stacking {
-        opcode: "data_setvariableto",
+        opcode: Opcode::data_setvariableto,
         inputs: Box::new([("VALUE", to.0)]),
         fields: Some(Fields::Variable(variable)),
     }
@@ -391,7 +391,7 @@ pub fn set_variable(variable: VariableRef, to: Operand) -> Stacking {
 #[must_use]
 pub fn set_x(x: Operand) -> Stacking {
     Stacking {
-        opcode: "motion_setx",
+        opcode: Opcode::motion_setx,
         inputs: Box::new([("X", x.0)]),
         fields: None,
     }
@@ -400,7 +400,7 @@ pub fn set_x(x: Operand) -> Stacking {
 #[must_use]
 pub fn set_y(y: Operand) -> Stacking {
     Stacking {
-        opcode: "motion_sety",
+        opcode: Opcode::motion_sety,
         inputs: Box::new([("Y", y.0)]),
         fields: None,
     }
@@ -408,18 +408,18 @@ pub fn set_y(y: Operand) -> Stacking {
 
 #[must_use]
 pub fn show() -> Stacking<'static> {
-    Stacking::new("looks_show")
+    Stacking::new(Opcode::looks_show)
 }
 
 #[must_use]
 pub fn stamp() -> Stacking<'static> {
-    Stacking::new("pen_stamp")
+    Stacking::new(Opcode::pen_stamp)
 }
 
 #[must_use]
 pub fn stop_all() -> Stacking<'static> {
     Stacking {
-        opcode: "control_stop",
+        opcode: Opcode::control_stop,
         inputs: Box::new([]),
         fields: Some(Fields::StopAll),
     }
@@ -428,7 +428,7 @@ pub fn stop_all() -> Stacking<'static> {
 #[must_use]
 pub fn stop_this_script() -> Stacking<'static> {
     Stacking {
-        opcode: "control_stop",
+        opcode: Opcode::control_stop,
         inputs: Box::new([]),
         fields: Some(Fields::StopThisScript),
     }
@@ -437,7 +437,7 @@ pub fn stop_this_script() -> Stacking<'static> {
 #[must_use]
 pub fn wait(seconds: Operand) -> Stacking {
     Stacking {
-        opcode: "control_wait",
+        opcode: Opcode::control_wait,
         inputs: Box::new([("DURATION", seconds.0)]),
         fields: None,
     }
@@ -519,4 +519,88 @@ impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, r#""b{}""#, self.0)
     }
+}
+
+#[expect(
+    non_camel_case_types,
+    reason = "exact names are used by derived `Debug` impl"
+)]
+#[derive(Debug)]
+pub(crate) enum Opcode {
+    argument_reporter_boolean,
+    argument_reporter_string_number,
+    control_create_clone_of,
+    control_create_clone_of_menu,
+    control_for_each,
+    control_forever,
+    control_if,
+    control_if_else,
+    control_repeat,
+    control_repeat_until,
+    control_start_as_clone,
+    control_stop,
+    control_wait,
+    control_while,
+    data_addtolist,
+    data_changevariableby,
+    data_deletealloflist,
+    data_deleteoflist,
+    data_insertatlist,
+    data_itemnumoflist,
+    data_itemoflist,
+    data_lengthoflist,
+    data_listcontainsitem,
+    data_replaceitemoflist,
+    data_setvariableto,
+    event_broadcastandwait,
+    event_whenbroadcastreceived,
+    event_whenflagclicked,
+    event_whenkeypressed,
+    looks_gotofrontback,
+    looks_hide,
+    looks_say,
+    looks_setsizeto,
+    looks_show,
+    looks_switchcostumeto,
+    motion_changexby,
+    motion_changeyby,
+    motion_gotoxy,
+    motion_movesteps,
+    motion_setx,
+    motion_sety,
+    motion_xposition,
+    motion_yposition,
+    operator_add,
+    operator_and,
+    operator_contains,
+    operator_divide,
+    operator_equals,
+    operator_gt,
+    operator_join,
+    operator_length,
+    operator_letter_of,
+    operator_lt,
+    operator_mathop,
+    operator_mod,
+    operator_multiply,
+    operator_not,
+    operator_or,
+    operator_random,
+    operator_subtract,
+    pen_clear,
+    pen_penDown,
+    pen_penUp,
+    pen_setPenColorTo,
+    pen_setPenSizeTo,
+    pen_stamp,
+    procedures_call,
+    procedures_definition,
+    procedures_prototype,
+    sensing_answer,
+    sensing_askandwait,
+    sensing_keypressed,
+    sensing_mousex,
+    sensing_mousey,
+    sensing_resettimer,
+    sensing_timer,
 }

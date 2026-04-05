@@ -3,7 +3,7 @@ mod costume;
 
 pub use costume::Costume;
 
-use block::{Block, Fields, Input};
+use block::{Block, Fields, Input, Opcode};
 use std::{
     fmt::Write as _,
     io::{self, Write as _},
@@ -269,7 +269,7 @@ impl<'strings> Target<'strings, '_> {
 
         let definition = block::Id(self.inner.blocks.len() + 1);
         let prototype = self.insert(Block {
-            opcode: "procedures_prototype",
+            opcode: Opcode::procedures_prototype,
             parent: Some(definition),
             next: None,
             inputs,
@@ -283,7 +283,7 @@ impl<'strings> Target<'strings, '_> {
 
         self.inner.blocks.push(
             block::Stacking {
-                opcode: "procedures_definition",
+                opcode: Opcode::procedures_definition,
                 inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
                 fields: None,
             }
@@ -310,7 +310,7 @@ impl<'strings> Target<'strings, '_> {
         .collect();
 
         let id = self.insert(Block {
-            opcode: "procedures_call",
+            opcode: Opcode::procedures_call,
             parent: self.point.parent,
             next: None,
             inputs,
@@ -326,8 +326,8 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn custom_block_parameter(&mut self, param: Parameter) -> Operand<'strings> {
         let opcode = match param.kind {
-            ParameterKind::StringOrNumber => "argument_reporter_string_number",
-            ParameterKind::Boolean => "argument_reporter_boolean",
+            ParameterKind::StringOrNumber => Opcode::argument_reporter_string_number,
+            ParameterKind::Boolean => Opcode::argument_reporter_boolean,
         };
         self.op(Block::new(opcode).fields(Fields::Value(param.name)))
     }
@@ -354,7 +354,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn forever(&mut self) {
         self.put(block::Stacking {
-            opcode: "control_forever",
+            opcode: Opcode::control_forever,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack)]),
             fields: None,
         });
@@ -363,7 +363,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
-            opcode: "control_repeat",
+            opcode: Opcode::control_repeat,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("TIMES", times.0)]),
             fields: None,
         });
@@ -375,7 +375,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn for_(&mut self, variable: VariableRef, times: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
-            opcode: "control_for_each",
+            opcode: Opcode::control_for_each,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("VALUE", times.0)]),
             fields: Some(Fields::Variable(variable)),
         });
@@ -387,7 +387,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
-            opcode: "control_if",
+            opcode: Opcode::control_if,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
                 ("CONDITION", condition.0),
@@ -402,7 +402,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint; 2] {
         self.put(block::Stacking {
-            opcode: "control_if_else",
+            opcode: Opcode::control_if_else,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
                 ("SUBSTACK2", Input::EmptySubstack),
@@ -423,7 +423,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
-            opcode: "control_while",
+            opcode: Opcode::control_while,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
                 ("CONDITION", condition.0),
@@ -438,7 +438,7 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint {
         self.put(block::Stacking {
-            opcode: "control_repeat_until",
+            opcode: Opcode::control_repeat_until,
             inputs: Box::new([
                 ("SUBSTACK", Input::EmptySubstack),
                 ("CONDITION", condition.0),
@@ -452,67 +452,69 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn add(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_add").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_add).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn sub(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_subtract").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_subtract).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn mul(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_multiply").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_multiply).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn div(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_divide").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_divide).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn modulo(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_mod").inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_mod).inputs([("NUM1", lhs.0), ("NUM2", rhs.0)]))
     }
 
     pub fn lt(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_lt").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_lt).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn eq(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_equals").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(
+            Block::new(Opcode::operator_equals).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)])
+        )
     }
 
     pub fn gt(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_gt").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_gt).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn not(&mut self, operand: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_not").inputs([("OPERAND", operand.0)]))
+        self.op(Block::new(Opcode::operator_not).inputs([("OPERAND", operand.0)]))
     }
 
     pub fn and(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_and").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_and).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn or(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_or").inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_or).inputs([("OPERAND1", lhs.0), ("OPERAND2", rhs.0)]))
     }
 
     pub fn x_position(&mut self) -> Operand<'strings> {
-        self.op(Block::new("motion_xposition"))
+        self.op(Block::new(Opcode::motion_xposition))
     }
 
     pub fn y_position(&mut self) -> Operand<'strings> {
-        self.op(Block::new("motion_yposition"))
+        self.op(Block::new(Opcode::motion_yposition))
     }
 
     pub fn timer(&mut self) -> Operand<'strings> {
-        self.op(Block::new("sensing_timer"))
+        self.op(Block::new(Opcode::sensing_timer))
     }
 
     pub fn answer(&mut self) -> Operand<'strings> {
-        self.op(Block::new("sensing_answer"))
+        self.op(Block::new(Opcode::sensing_answer))
     }
 
     pub fn item_of_list(&mut self, list: ListRef, index: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("data_itemoflist")
+        self.op(Block::new(Opcode::data_itemoflist)
             .inputs([("INDEX", index.0)])
             .fields(Fields::List(list)))
     }
@@ -522,17 +524,17 @@ impl<'strings> Target<'strings, '_> {
         list: ListRef,
         item: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new("data_itemnumoflist")
+        self.op(Block::new(Opcode::data_itemnumoflist)
             .inputs([("ITEM", item.0)])
             .fields(Fields::List(list)))
     }
 
     pub fn length(&mut self, string: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_length").inputs([("STRING", string.0)]))
+        self.op(Block::new(Opcode::operator_length).inputs([("STRING", string.0)]))
     }
 
     pub fn length_of_list(&mut self, list: ListRef) -> Operand<'strings> {
-        self.op(Block::new("data_lengthoflist").fields(Fields::List(list)))
+        self.op(Block::new(Opcode::data_lengthoflist).fields(Fields::List(list)))
     }
 
     pub fn letter_of(
@@ -540,7 +542,8 @@ impl<'strings> Target<'strings, '_> {
         string: Operand<'strings>,
         index: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new("operator_letter_of").inputs([("STRING", string.0), ("LETTER", index.0)]))
+        self.op(Block::new(Opcode::operator_letter_of)
+            .inputs([("STRING", string.0), ("LETTER", index.0)]))
     }
 
     pub fn contains(
@@ -548,7 +551,7 @@ impl<'strings> Target<'strings, '_> {
         haystack: Operand<'strings>,
         needle: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new("operator_contains")
+        self.op(Block::new(Opcode::operator_contains)
             .inputs([("STRING1", haystack.0), ("STRING2", needle.0)]))
     }
 
@@ -557,42 +560,42 @@ impl<'strings> Target<'strings, '_> {
         list: ListRef,
         item: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.op(Block::new("data_listcontainsitem")
+        self.op(Block::new(Opcode::data_listcontainsitem)
             .inputs([("ITEM", item.0)])
             .fields(Fields::List(list)))
     }
 
     pub fn join(&mut self, lhs: Operand<'strings>, rhs: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_join").inputs([("STRING1", lhs.0), ("STRING2", rhs.0)]))
+        self.op(Block::new(Opcode::operator_join).inputs([("STRING1", lhs.0), ("STRING2", rhs.0)]))
     }
 
     pub fn mathop(&mut self, operator: &'static str, num: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_mathop")
+        self.op(Block::new(Opcode::operator_mathop)
             .inputs([("NUM", num.0)])
             .fields(Fields::Operator(operator)))
     }
 
     pub fn mouse_x(&mut self) -> Operand<'strings> {
-        self.op(Block::new("sensing_mousex"))
+        self.op(Block::new(Opcode::sensing_mousex))
     }
 
     pub fn mouse_y(&mut self) -> Operand<'strings> {
-        self.op(Block::new("sensing_mousey"))
+        self.op(Block::new(Opcode::sensing_mousey))
     }
 
     pub fn key_is_pressed(&mut self, key: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("sensing_keypressed").inputs([("KEY_OPTION", key.0)]))
+        self.op(Block::new(Opcode::sensing_keypressed).inputs([("KEY_OPTION", key.0)]))
     }
 
     pub fn random(&mut self, from: Operand<'strings>, to: Operand<'strings>) -> Operand<'strings> {
-        self.op(Block::new("operator_random").inputs([("FROM", from.0), ("TO", to.0)]))
+        self.op(Block::new(Opcode::operator_random).inputs([("FROM", from.0), ("TO", to.0)]))
     }
 
     pub fn clone_self(&mut self) {
         let menu =
-            self.insert(Block::new("control_create_clone_of_menu").fields(Fields::CloneSelf));
+            self.insert(Block::new(Opcode::control_create_clone_of_menu).fields(Fields::CloneSelf));
         self.put(block::Stacking {
-            opcode: "control_create_clone_of",
+            opcode: Opcode::control_create_clone_of,
             inputs: Box::new([("CLONE_OPTION", Input::Prototype(menu))]),
             fields: None,
         });
