@@ -3,8 +3,8 @@ use std::{fmt, io};
 
 pub(crate) struct Block<'strings> {
     pub(crate) opcode: Opcode,
-    pub(crate) parent: Option<Id>,
-    pub(crate) next: Option<Id>,
+    pub(crate) parent: OptionId,
+    pub(crate) next: OptionId,
     pub(crate) inputs: Box<[(&'static str, Input<'strings>)]>,
 }
 
@@ -17,18 +17,18 @@ impl<'strings> Block<'strings> {
         writer: &mut dyn io::Write,
     ) -> io::Result<()> {
         write!(writer, r#"{{"opcode":"{:?}","parent":"#, self.opcode)?;
-        if let Some(parent) = self.parent {
+        if let Some(parent) = self.parent.get() {
             write!(writer, "{parent}")
         } else {
             write!(writer, "null")
         }?;
         write!(writer, r#","next":"#)?;
-        if let Some(next) = self.next {
+        if let Some(next) = self.next.get() {
             write!(writer, "{next}")
         } else {
             write!(writer, "null")
         }?;
-        write!(writer, r#","topLevel":{}"#, self.parent.is_none())?;
+        write!(writer, r#","topLevel":{}"#, self.parent.get().is_none())?;
         if self
             .inputs
             .iter()
@@ -67,8 +67,8 @@ impl<'strings> Block<'strings> {
     pub(crate) fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
-            parent: None,
-            next: None,
+            parent: None.into(),
+            next: None.into(),
             inputs: Box::new([]),
         }
     }
@@ -495,6 +495,27 @@ pub(crate) struct Id(pub usize);
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, r#""b{}""#, self.0)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct OptionId(usize);
+
+impl From<Id> for OptionId {
+    fn from(value: Id) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<Option<Id>> for OptionId {
+    fn from(value: Option<Id>) -> Self {
+        Self(value.map_or(usize::MAX, |it| it.0))
+    }
+}
+
+impl OptionId {
+    pub(crate) fn get(self) -> Option<Id> {
+        (self.0 != usize::MAX).then_some(Id(self.0))
     }
 }
 

@@ -32,7 +32,7 @@ impl<'strings> Project<'strings> {
         Target {
             inner: &mut self.targets[index],
             point: InsertionPoint {
-                parent: None,
+                parent: None.into(),
                 place: Place::Next,
             },
         }
@@ -243,20 +243,20 @@ impl<'strings> Target<'strings, '_> {
         self.inner.mutations.push(Mutation(CustomBlockRef(index)));
         let prototype = self.insert(Block {
             opcode: Opcode::procedures_prototype,
-            parent: Some(definition),
-            next: None,
+            parent: definition.into(),
+            next: None.into(),
             inputs,
         });
 
         self.inner.blocks.push(Block {
             opcode: Opcode::procedures_definition,
-            parent: None,
-            next: None,
+            parent: None.into(),
+            next: None.into(),
             inputs: Box::new([("custom_block", Input::Prototype(prototype))]),
         });
 
         let point = InsertionPoint {
-            parent: Some(definition),
+            parent: definition.into(),
             place: Place::Next,
         };
         (CustomBlockRef(index), point)
@@ -274,12 +274,12 @@ impl<'strings> Target<'strings, '_> {
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
             parent: self.point.parent,
-            next: None,
+            next: None.into(),
             inputs,
         });
         self.set_next(id);
         self.point = InsertionPoint {
-            parent: Some(id),
+            parent: id.into(),
             place: Place::Next,
         };
     }
@@ -311,12 +311,12 @@ impl<'strings> Target<'strings, '_> {
         let id = block::Id(self.inner.blocks.len());
         self.inner.blocks.push(Block {
             opcode: hat.opcode,
-            parent: None,
-            next: None,
+            parent: None.into(),
+            next: None.into(),
             inputs: Box::new([]),
         });
         self.point = InsertionPoint {
-            parent: Some(id),
+            parent: id.into(),
             place: Place::Next,
         };
     }
@@ -326,12 +326,12 @@ impl<'strings> Target<'strings, '_> {
         let id = self.insert(Block {
             opcode: block.opcode,
             parent: self.point.parent,
-            next: None,
+            next: None.into(),
             inputs: block.inputs,
         });
         self.set_next(id);
         self.point = InsertionPoint {
-            parent: Some(id),
+            parent: id.into(),
             place: Place::Next,
         };
     }
@@ -590,7 +590,7 @@ impl<'strings> Target<'strings, '_> {
         let id = block::Id(self.inner.blocks.len());
         for (_, input) in &block.inputs {
             if let Input::Substack(operand_block_id) | Input::Prototype(operand_block_id) = input {
-                self.inner.blocks[operand_block_id.0].parent = Some(id);
+                self.inner.blocks[operand_block_id.0].parent = id.into();
             }
         }
         self.inner.blocks.push(block);
@@ -598,12 +598,12 @@ impl<'strings> Target<'strings, '_> {
     }
 
     fn set_next(&mut self, next: block::Id) {
-        let Some(parent) = self.point.parent else {
+        let Some(parent) = self.point.parent.get() else {
             return;
         };
         let parent = &mut self.inner.blocks[parent.0];
         match self.point.place {
-            Place::Next => parent.next = Some(next),
+            Place::Next => parent.next = next.into(),
             Place::Substack1 => parent.inputs[0].1 = Input::Substack(next),
             Place::Substack2 => parent.inputs[1].1 = Input::Substack(next),
         }
@@ -611,7 +611,7 @@ impl<'strings> Target<'strings, '_> {
 }
 
 pub struct InsertionPoint {
-    parent: Option<block::Id>,
+    parent: block::OptionId,
     place: Place,
 }
 
