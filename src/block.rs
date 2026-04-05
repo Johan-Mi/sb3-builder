@@ -465,11 +465,11 @@ impl Input<'_> {
             Self::String(s) => write!(writer, r"[1,[10,{s:?}]]"),
             Self::Variable(VariableRef(id)) => {
                 let name = &target.variables[id].name;
-                write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#,)
+                write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#)
             }
             Self::List(ListRef(id)) => {
                 let name = &target.lists[id].name;
-                write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#,)
+                write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#)
             }
             Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
         }
@@ -493,11 +493,11 @@ impl Fields<'_> {
         match self {
             Self::Variable(VariableRef(id)) => {
                 let name = &target.variables[*id].name;
-                write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#,)
+                write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#)
             }
             Self::List(ListRef(id)) => {
                 let name = &target.lists[*id].name;
-                write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#,)
+                write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#)
             }
             Self::Value(name) => write!(writer, r#"{{"VALUE":[{name:?},null]}}"#),
             Self::Operator(operator) => write!(writer, r#"{{"OPERATOR":[{operator:?},null]}}"#),
