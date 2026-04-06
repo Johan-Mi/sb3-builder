@@ -5,7 +5,7 @@ pub use costume::Costume;
 
 use block::{Block, Fields, Input, Opcode};
 use std::io::{self, Write as _};
-use std::ops::Range;
+use tec::Tec;
 
 pub struct Project<'strings> {
     targets: Vec<RealTarget<'strings>>,
@@ -83,14 +83,14 @@ struct RealTarget<'strings> {
     name: &'strings str,
     is_stage: bool,
     costumes: Vec<Costume<'strings>>,
-    variables: Vec<Variable<'strings>>,
-    lists: Vec<List<'strings>>,
-    blocks: Vec<block::Block>,
-    inputs: Vec<(&'static str, Input<'strings>)>,
-    fields: Vec<Fields<'strings>>,
-    mutations: Vec<Mutation>,
-    parameters: Vec<Parameter>,
-    custom_blocks: Vec<CustomBlock>,
+    variables: Tec<Variable<'strings>>,
+    lists: Tec<List<'strings>>,
+    blocks: Tec<block::Block>,
+    inputs: Tec<(&'static str, Input<'strings>)>,
+    fields: Tec<Fields<'strings>>,
+    mutations: Tec<Mutation>,
+    parameters: Tec<Parameter>,
+    custom_blocks: Tec<CustomBlock>,
     comments: Vec<Comment>,
 }
 
@@ -108,27 +108,27 @@ impl RealTarget<'_> {
             costume.serialize(writer)?;
         }
         write!(writer, r#"],"sounds":[],"variables":{{"#)?;
-        for (i, variable) in self.variables.iter().enumerate() {
-            if i != 0 {
+        for (i, variable) in &self.variables {
+            if i.to_u32() != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, r#""v{i}":"#)?;
+            write!(writer, r#""v{}":"#, i.to_u32())?;
             variable.serialize(writer)?;
         }
         write!(writer, r#"}},"lists":{{"#)?;
-        for (i, list) in self.lists.iter().enumerate() {
-            if i != 0 {
+        for (i, list) in &self.lists {
+            if i.to_u32() != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, r#""l{i}":"#)?;
+            write!(writer, r#""l{}":"#, i.to_u32())?;
             list.serialize(writer)?;
         }
         write!(writer, r#"}},"blocks":{{"#)?;
         let mut all_inputs = &*self.inputs;
-        let mut fields = self.fields.iter().copied();
-        let mut mutations = self.mutations.iter().copied();
-        for (i, block) in self.blocks.iter().enumerate() {
-            if i != 0 {
+        let mut fields = self.fields.values().copied();
+        let mut mutations = self.mutations.values().copied();
+        for (i, block) in &self.blocks {
+            if i.to_u32() != 0 {
                 write!(writer, ",")?;
             }
             write!(writer, "{}:", block::Id(i))?;
@@ -141,7 +141,7 @@ impl RealTarget<'_> {
                 self.custom_blocks[mutation.unwrap_or_else(|| unreachable!()).0 .0]
                     .parameters
                     .len()
-            });
+            }) as usize;
             let inputs = all_inputs
                 .split_off(..input_count)
                 .unwrap_or_else(|| unreachable!());
@@ -169,14 +169,14 @@ impl<'strings> RealTarget<'strings> {
             name,
             is_stage,
             costumes: Vec::new(),
-            variables: Vec::new(),
-            lists: Vec::new(),
-            blocks: Vec::new(),
-            inputs: Vec::new(),
-            fields: Vec::new(),
-            mutations: Vec::new(),
-            parameters: Vec::new(),
-            custom_blocks: Vec::new(),
+            variables: Tec::new(),
+            lists: Tec::new(),
+            blocks: Tec::new(),
+            inputs: Tec::new(),
+            fields: Tec::new(),
+            mutations: Tec::new(),
+            parameters: Tec::new(),
+            custom_blocks: Tec::new(),
             comments: Vec::new(),
         }
     }
@@ -198,7 +198,7 @@ impl Comment {
 
 pub struct Target<'strings, 'project> {
     inner: &'project mut RealTarget<'strings>,
-    place: Place,
+    place: Place<'strings>,
 }
 
 impl<'strings> Target<'strings, '_> {
@@ -210,27 +210,23 @@ impl<'strings> Target<'strings, '_> {
         self.inner.costumes.push(costume);
     }
 
-    pub fn add_variable(&mut self, variable: Variable<'strings>) -> VariableRef {
-        let id = self.inner.variables.len();
-        self.inner.variables.push(variable);
-        VariableRef(id)
+    pub fn add_variable(&mut self, variable: Variable<'strings>) -> VariableRef<'strings> {
+        VariableRef(self.inner.variables.push(variable))
     }
 
-    pub fn add_list(&mut self, list: List<'strings>) -> ListRef {
-        let id = self.inner.lists.len();
-        self.inner.lists.push(list);
-        ListRef(id)
+    pub fn add_list(&mut self, list: List<'strings>) -> ListRef<'strings> {
+        ListRef(self.inner.lists.push(list))
     }
 
     #[expect(
         clippy::needless_pass_by_value,
         reason = "`InsertionPoint` is intentionally impossible to copy"
     )]
-    pub const fn insert_at(&mut self, point: InsertionPoint) -> InsertionPoint {
+    pub const fn insert_at(&mut self, point: InsertionPoint<'strings>) -> InsertionPoint<'strings> {
         self.insert_at_(point.0)
     }
 
-    const fn insert_at_(&mut self, place: Place) -> InsertionPoint {
+    const fn insert_at_(&mut self, place: Place<'strings>) -> InsertionPoint<'strings> {
         InsertionPoint(std::mem::replace(&mut self.place, place))
     }
 
@@ -238,37 +234,39 @@ impl<'strings> Target<'strings, '_> {
         &mut self,
         name: String,
         parameters: impl Iterator<Item = Parameter>,
-    ) -> (CustomBlockRef, InsertionPoint) {
-        let start = self.inner.parameters.len();
+    ) -> (CustomBlockRef, InsertionPoint<'strings>) {
+        let start = self.inner.parameters.next_id();
         self.inner.parameters.extend(parameters);
 
-        let index = self.inner.custom_blocks.len();
-        self.inner.custom_blocks.push(CustomBlock {
+        let index = self.inner.custom_blocks.push(CustomBlock {
             name,
-            parameters: start..self.inner.parameters.len(),
+            parameters: tec::Range {
+                start,
+                end: self.inner.parameters.next_id(),
+            },
         });
 
-        let definition = block::Id(self.inner.blocks.len() + 1);
-        self.inner.mutations.push(Mutation(CustomBlockRef(index)));
+        let definition = block::Id(self.inner.blocks.next_id().strict_add(1));
+        let _: tec::Id<_> = self.inner.mutations.push(Mutation(CustomBlockRef(index)));
         let prototype = self.insert(Block {
             opcode: Opcode::procedures_prototype,
-            parent: definition.into(),
-            next: None.into(),
+            parent: Some(definition),
+            next: None,
         });
 
-        for parameter in start..self.inner.parameters.len() {
-            let id = &*parameter.to_string().leak();
+        let end = self.inner.parameters.next_id();
+        for parameter in (tec::Range { start, end }) {
+            let id = &*parameter.to_u32().to_string().leak();
             let input = self.custom_block_parameter_raw(parameter).0;
             self.add_inputs(prototype, [(id, input)]);
         }
 
-        let id = block::Id(self.inner.blocks.len());
-        self.add_inputs(id, [("custom_block", Input::Prototype(prototype))]);
-        self.inner.blocks.push(Block {
+        let id = block::Id(self.inner.blocks.push(Block {
             opcode: Opcode::procedures_definition,
-            parent: None.into(),
-            next: None.into(),
-        });
+            parent: None,
+            next: None,
+        }));
+        self.add_inputs(id, [("custom_block", Input::Prototype(prototype))]);
 
         let point = InsertionPoint(Place::After(definition));
         (CustomBlockRef(index), point)
@@ -278,21 +276,21 @@ impl<'strings> Target<'strings, '_> {
     ///
     /// Panics if no script has been started.
     pub fn use_custom_block(&mut self, block: CustomBlockRef, arguments: Vec<Operand<'strings>>) {
-        self.inner.mutations.push(Mutation(block));
+        let _: tec::Id<_> = self.inner.mutations.push(Mutation(block));
         let (Place::After(parent) | Place::Inside { block: parent, .. }) = self.place else {
             panic!("cannot put block when no script has been started");
         };
         let id = self.insert(Block {
             opcode: Opcode::procedures_call,
-            parent: parent.into(),
-            next: None.into(),
+            parent: Some(parent),
+            next: None,
         });
         self.add_inputs(
             id,
             self.inner.custom_blocks[block.0]
                 .parameters
-                .clone()
-                .map(|it| &*it.to_string().leak())
+                .into_iter()
+                .map(|it| &*it.to_u32().to_string().leak())
                 .zip(arguments.into_iter().map(|arg| arg.0)),
         );
         self.set_next(id);
@@ -307,28 +305,28 @@ impl<'strings> Target<'strings, '_> {
         block: CustomBlockRef,
         index: usize,
     ) -> Operand<'strings> {
-        let range = &self.inner.custom_blocks[block.0].parameters;
+        let range = self.inner.custom_blocks[block.0].parameters;
+        let index = u32::try_from(index).unwrap_or_else(|_| panic!("index out of bounds"));
         assert!(index < range.len());
-        self.custom_block_parameter_raw(range.start + index)
+        self.custom_block_parameter_raw(range.at(index))
     }
 
-    pub fn custom_block_parameter_raw(&mut self, absolute_index: usize) -> Operand<'strings> {
-        let opcode = match self.inner.parameters[absolute_index].kind {
+    pub fn custom_block_parameter_raw(&mut self, id: tec::Id<Parameter>) -> Operand<'strings> {
+        let opcode = match self.inner.parameters[id].kind {
             ParameterKind::StringOrNumber => Opcode::argument_reporter_string_number,
             ParameterKind::Boolean => Opcode::argument_reporter_boolean,
         };
-        self.inner.fields.push(Fields::Value(absolute_index));
+        let _: tec::Id<_> = self.inner.fields.push(Fields::Value(id));
         self.op(opcode, [])
     }
 
     pub fn start_script(&mut self, hat: block::Hat<'strings>) {
         self.inner.fields.extend(hat.fields);
-        let id = block::Id(self.inner.blocks.len());
-        self.inner.blocks.push(Block {
+        let id = block::Id(self.inner.blocks.push(Block {
             opcode: hat.opcode,
-            parent: None.into(),
-            next: None.into(),
-        });
+            parent: None,
+            next: None,
+        }));
         self.place = Place::After(id);
     }
 
@@ -343,8 +341,8 @@ impl<'strings> Target<'strings, '_> {
         };
         let id = self.insert(Block {
             opcode: block.opcode,
-            parent: parent.into(),
-            next: None.into(),
+            parent: Some(parent),
+            next: None,
         });
         self.add_inputs(id, block.inputs);
         self.set_next(id);
@@ -353,7 +351,7 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn forever(&mut self) {
-        let input = self.inner.inputs.len();
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_forever,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack)]),
@@ -362,8 +360,8 @@ impl<'strings> Target<'strings, '_> {
         self.place = Place::Inside { block, input };
     }
 
-    pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint {
-        let input = self.inner.inputs.len();
+    pub fn repeat(&mut self, times: Operand<'strings>) -> InsertionPoint<'strings> {
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_repeat,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("TIMES", times.0)]),
@@ -372,8 +370,12 @@ impl<'strings> Target<'strings, '_> {
         self.insert_at_(Place::Inside { block, input })
     }
 
-    pub fn for_(&mut self, variable: VariableRef, times: Operand<'strings>) -> InsertionPoint {
-        let input = self.inner.inputs.len();
+    pub fn for_(
+        &mut self,
+        variable: VariableRef<'strings>,
+        times: Operand<'strings>,
+    ) -> InsertionPoint<'strings> {
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_for_each,
             inputs: Box::new([("SUBSTACK", Input::EmptySubstack), ("VALUE", times.0)]),
@@ -382,8 +384,8 @@ impl<'strings> Target<'strings, '_> {
         self.insert_at_(Place::Inside { block, input })
     }
 
-    pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
-        let input = self.inner.inputs.len();
+    pub fn if_(&mut self, condition: Operand<'strings>) -> InsertionPoint<'strings> {
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_if,
             inputs: Box::new([
@@ -395,8 +397,8 @@ impl<'strings> Target<'strings, '_> {
         self.insert_at_(Place::Inside { block, input })
     }
 
-    pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint; 2] {
-        let input = self.inner.inputs.len();
+    pub fn if_else(&mut self, condition: Operand<'strings>) -> [InsertionPoint<'strings>; 2] {
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_if_else,
             inputs: Box::new([
@@ -409,13 +411,13 @@ impl<'strings> Target<'strings, '_> {
         let after = self.insert_at_(Place::Inside { block, input });
         let else_ = InsertionPoint(Place::Inside {
             block,
-            input: input + 1,
+            input: input.strict_add(1),
         });
         [after, else_]
     }
 
-    pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint {
-        let input = self.inner.inputs.len();
+    pub fn while_(&mut self, condition: Operand<'strings>) -> InsertionPoint<'strings> {
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_while,
             inputs: Box::new([
@@ -427,8 +429,8 @@ impl<'strings> Target<'strings, '_> {
         self.insert_at_(Place::Inside { block, input })
     }
 
-    pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint {
-        let input = self.inner.inputs.len();
+    pub fn repeat_until(&mut self, condition: Operand<'strings>) -> InsertionPoint<'strings> {
+        let input = self.inner.inputs.next_id();
         let block = self.put_(block::Stacking {
             opcode: Opcode::control_repeat_until,
             inputs: Box::new([
@@ -521,17 +523,21 @@ impl<'strings> Target<'strings, '_> {
         self.op(Opcode::sensing_answer, [])
     }
 
-    pub fn item_of_list(&mut self, list: ListRef, index: Operand<'strings>) -> Operand<'strings> {
-        self.inner.fields.push(Fields::List(list));
+    pub fn item_of_list(
+        &mut self,
+        list: ListRef<'strings>,
+        index: Operand<'strings>,
+    ) -> Operand<'strings> {
+        let _: tec::Id<_> = self.inner.fields.push(Fields::List(list));
         self.op(Opcode::data_itemoflist, [("INDEX", index.0)])
     }
 
     pub fn item_num_of_list(
         &mut self,
-        list: ListRef,
+        list: ListRef<'strings>,
         item: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.inner.fields.push(Fields::List(list));
+        let _: tec::Id<_> = self.inner.fields.push(Fields::List(list));
         self.op(Opcode::data_itemnumoflist, [("ITEM", item.0)])
     }
 
@@ -539,8 +545,8 @@ impl<'strings> Target<'strings, '_> {
         self.op(Opcode::operator_length, [("STRING", string.0)])
     }
 
-    pub fn length_of_list(&mut self, list: ListRef) -> Operand<'strings> {
-        self.inner.fields.push(Fields::List(list));
+    pub fn length_of_list(&mut self, list: ListRef<'strings>) -> Operand<'strings> {
+        let _: tec::Id<_> = self.inner.fields.push(Fields::List(list));
         self.op(Opcode::data_lengthoflist, [])
     }
 
@@ -568,10 +574,10 @@ impl<'strings> Target<'strings, '_> {
 
     pub fn list_contains_item(
         &mut self,
-        list: ListRef,
+        list: ListRef<'strings>,
         item: Operand<'strings>,
     ) -> Operand<'strings> {
-        self.inner.fields.push(Fields::List(list));
+        let _: tec::Id<_> = self.inner.fields.push(Fields::List(list));
         self.op(Opcode::data_listcontainsitem, [("ITEM", item.0)])
     }
 
@@ -583,7 +589,7 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn mathop(&mut self, operator: &'static str, num: Operand<'strings>) -> Operand<'strings> {
-        self.inner.fields.push(Fields::Operator(operator));
+        let _: tec::Id<_> = self.inner.fields.push(Fields::Operator(operator));
         self.op(Opcode::operator_mathop, [("NUM", num.0)])
     }
 
@@ -604,7 +610,7 @@ impl<'strings> Target<'strings, '_> {
     }
 
     pub fn clone_self(&mut self) {
-        self.inner.fields.push(Fields::CloneSelf);
+        let _: tec::Id<_> = self.inner.fields.push(Fields::CloneSelf);
         let menu = self.insert(Block::new(Opcode::control_create_clone_of_menu));
         self.put(block::Stacking {
             opcode: Opcode::control_create_clone_of,
@@ -620,17 +626,15 @@ impl<'strings> Target<'strings, '_> {
     ) -> Operand<'strings> {
         let id = self.insert(Block {
             opcode,
-            parent: None.into(),
-            next: None.into(),
+            parent: None,
+            next: None,
         });
         self.add_inputs(id, inputs);
         Operand(Input::Substack(id))
     }
 
     fn insert(&mut self, block: Block) -> block::Id {
-        let id = block::Id(self.inner.blocks.len());
-        self.inner.blocks.push(block);
-        id
+        block::Id(self.inner.blocks.push(block))
     }
 
     fn set_next(&mut self, next: block::Id) {
@@ -648,19 +652,22 @@ impl<'strings> Target<'strings, '_> {
     ) {
         self.inner.inputs.extend(inputs.into_iter().inspect(|it| {
             if let Input::Substack(it) = it.1 {
-                self.inner.blocks[it.0].parent = parent.into();
+                self.inner.blocks[it.0].parent = Some(parent);
             }
         }));
     }
 }
 
-pub struct InsertionPoint(Place);
+pub struct InsertionPoint<'strings>(Place<'strings>);
 
 #[derive(Clone, Copy)]
-enum Place {
+enum Place<'strings> {
     Nowhere,
     After(block::Id),
-    Inside { block: block::Id, input: usize },
+    Inside {
+        block: block::Id,
+        input: tec::Id<(&'static str, Input<'strings>)>,
+    },
 }
 
 pub enum Constant<'strings> {
@@ -691,7 +698,7 @@ impl Variable<'_> {
 }
 
 #[derive(Clone, Copy)]
-pub struct VariableRef(usize);
+pub struct VariableRef<'strings>(tec::Id<Variable<'strings>>);
 
 pub struct List<'strings> {
     pub name: String,
@@ -712,7 +719,7 @@ impl List<'_> {
 }
 
 #[derive(Clone, Copy)]
-pub struct ListRef(usize);
+pub struct ListRef<'strings>(tec::Id<List<'strings>>);
 
 #[derive(Clone)]
 pub struct Parameter {
@@ -728,11 +735,11 @@ pub enum ParameterKind {
 
 struct CustomBlock {
     name: String,
-    parameters: Range<usize>,
+    parameters: tec::Range<Parameter>,
 }
 
 #[derive(Clone, Copy)]
-pub struct CustomBlockRef(usize);
+pub struct CustomBlockRef(tec::Id<CustomBlock>);
 
 #[derive(Clone, Copy)]
 struct Mutation(CustomBlockRef);
@@ -750,26 +757,23 @@ impl Mutation {
             r#"{{"tagName":"mutation","children":[],"proccode":"{}"#,
             block.name.escape_debug()
         )?;
-        for parameter in &target.parameters[block.parameters.clone()] {
+        for parameter in &target.parameters[block.parameters] {
             writer.write_all(match parameter.kind {
                 ParameterKind::StringOrNumber => b" %s",
                 ParameterKind::Boolean => b" %b",
             })?;
         }
         write!(writer, r#"","argumentids":""#)?;
-        for (index, parameter) in block.parameters.clone().enumerate() {
+        for (index, parameter) in block.parameters.into_iter().enumerate() {
             if index != 0 {
                 write!(writer, ",")?;
             }
-            write!(writer, r#"\"{parameter}\""#)?;
+            write!(writer, r#"\"{}\""#, parameter.to_u32())?;
         }
         write!(writer, r#"","warp":true"#)?;
         if is_prototype {
             write!(writer, r#","argumentnames":"["#)?;
-            for (index, parameter) in target.parameters[block.parameters.clone()]
-                .iter()
-                .enumerate()
-            {
+            for (index, parameter) in target.parameters[block.parameters].iter().enumerate() {
                 if index != 0 {
                     write!(writer, ",")?;
                 }
@@ -780,10 +784,7 @@ impl Mutation {
                 write!(writer, r#"""#)?;
             }
             write!(writer, r#"]","argumentdefaults":""#)?;
-            for (index, parameter) in target.parameters[block.parameters.clone()]
-                .iter()
-                .enumerate()
-            {
+            for (index, parameter) in target.parameters[block.parameters].iter().enumerate() {
                 if index != 0 {
                     write!(writer, ",")?;
                 }
@@ -812,14 +813,14 @@ impl<'strings> From<&'strings str> for Operand<'strings> {
     }
 }
 
-impl From<VariableRef> for Operand<'_> {
-    fn from(value: VariableRef) -> Self {
+impl<'strings> From<VariableRef<'strings>> for Operand<'strings> {
+    fn from(value: VariableRef<'strings>) -> Self {
         Self(Input::Variable(value))
     }
 }
 
-impl From<ListRef> for Operand<'_> {
-    fn from(value: ListRef) -> Self {
+impl<'strings> From<ListRef<'strings>> for Operand<'strings> {
+    fn from(value: ListRef<'strings>) -> Self {
         Self(Input::List(value))
     }
 }

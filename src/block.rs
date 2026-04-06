@@ -1,10 +1,10 @@
-use crate::{ListRef, Mutation, Operand, RealTarget, VariableRef};
+use crate::{ListRef, Mutation, Operand, Parameter, RealTarget, VariableRef};
 use std::{fmt, io};
 
 pub(crate) struct Block {
     pub(crate) opcode: Opcode,
-    pub(crate) parent: OptionId,
-    pub(crate) next: OptionId,
+    pub(crate) parent: Option<Id>,
+    pub(crate) next: Option<Id>,
 }
 
 impl Block {
@@ -17,18 +17,18 @@ impl Block {
         writer: &mut dyn io::Write,
     ) -> io::Result<()> {
         write!(writer, r#"{{"opcode":"{:?}","parent":"#, self.opcode)?;
-        if let Some(parent) = self.parent.get() {
+        if let Some(parent) = self.parent {
             write!(writer, "{parent}")
         } else {
             write!(writer, "null")
         }?;
         write!(writer, r#","next":"#)?;
-        if let Some(next) = self.next.get() {
+        if let Some(next) = self.next {
             write!(writer, "{next}")
         } else {
             write!(writer, "null")
         }?;
-        write!(writer, r#","topLevel":{}"#, self.parent.get().is_none())?;
+        write!(writer, r#","topLevel":{}"#, self.parent.is_none())?;
         if inputs
             .iter()
             .any(|(_, it)| !matches!(it, Input::EmptySubstack))
@@ -62,11 +62,11 @@ impl Block {
         write!(writer, "}}")
     }
 
-    pub(crate) fn new(opcode: Opcode) -> Self {
+    pub(crate) const fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
-            parent: None.into(),
-            next: None.into(),
+            parent: None,
+            next: None,
         }
     }
 }
@@ -126,7 +126,7 @@ pub const fn when_received(message: &str) -> Hat<'_> {
 }
 
 #[must_use]
-pub fn append(list: ListRef, item: Operand) -> Stacking {
+pub fn append<'strings>(list: ListRef<'strings>, item: Operand<'strings>) -> Stacking<'strings> {
     Stacking {
         opcode: Opcode::data_addtolist,
         inputs: Box::new([("ITEM", item.0)]),
@@ -153,7 +153,10 @@ pub fn broadcast_and_wait(message: Operand) -> Stacking {
 }
 
 #[must_use]
-pub fn change_variable(variable: VariableRef, by: Operand) -> Stacking {
+pub fn change_variable<'strings>(
+    variable: VariableRef<'strings>,
+    by: Operand<'strings>,
+) -> Stacking<'strings> {
     Stacking {
         opcode: Opcode::data_changevariableby,
         inputs: Box::new([("VALUE", by.0)]),
@@ -180,7 +183,7 @@ pub fn change_y(dy: Operand) -> Stacking {
 }
 
 #[must_use]
-pub fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
+pub fn delete_all_of_list(list: ListRef) -> Stacking {
     Stacking {
         opcode: Opcode::data_deletealloflist,
         inputs: Box::new([]),
@@ -189,7 +192,10 @@ pub fn delete_all_of_list(list: ListRef) -> Stacking<'static> {
 }
 
 #[must_use]
-pub fn delete_of_list(list: ListRef, index: Operand) -> Stacking {
+pub fn delete_of_list<'strings>(
+    list: ListRef<'strings>,
+    index: Operand<'strings>,
+) -> Stacking<'strings> {
     Stacking {
         opcode: Opcode::data_deleteoflist,
         inputs: Box::new([("INDEX", index.0)]),
@@ -236,7 +242,7 @@ pub fn hide() -> Stacking<'static> {
 
 #[must_use]
 pub fn insert_at_list<'strings>(
-    list: ListRef,
+    list: ListRef<'strings>,
     item: Operand<'strings>,
     index: Operand<'strings>,
 ) -> Stacking<'strings> {
@@ -268,7 +274,7 @@ pub fn pen_up() -> Stacking<'static> {
 
 #[must_use]
 pub fn replace<'strings>(
-    list: ListRef,
+    list: ListRef<'strings>,
     index: Operand<'strings>,
     item: Operand<'strings>,
 ) -> Stacking<'strings> {
@@ -342,7 +348,10 @@ pub fn set_size(size: Operand) -> Stacking {
 }
 
 #[must_use]
-pub fn set_variable(variable: VariableRef, to: Operand) -> Stacking {
+pub fn set_variable<'strings>(
+    variable: VariableRef<'strings>,
+    to: Operand<'strings>,
+) -> Stacking<'strings> {
     Stacking {
         opcode: Opcode::data_setvariableto,
         inputs: Box::new([("VALUE", to.0)]),
@@ -410,8 +419,8 @@ pub(crate) enum Input<'strings> {
     EmptySubstack,
     Number(f64),
     String(&'strings str),
-    Variable(VariableRef),
-    List(ListRef),
+    Variable(VariableRef<'strings>),
+    List(ListRef<'strings>),
     Prototype(Id),
 }
 
@@ -427,11 +436,11 @@ impl Input<'_> {
             Self::String(s) => write!(writer, r"[1,[10,{s:?}]]"),
             Self::Variable(VariableRef(id)) => {
                 let name = &target.variables[id].name;
-                write!(writer, r#"[2,[12,{name:?},"v{id}"]]"#)
+                write!(writer, r#"[2,[12,{name:?},"v{}"]]"#, id.to_u32())
             }
             Self::List(ListRef(id)) => {
                 let name = &target.lists[id].name;
-                write!(writer, r#"[2,[13,{name:?},"l{id}"]]"#)
+                write!(writer, r#"[2,[13,{name:?},"l{}"]]"#, id.to_u32())
             }
             Self::Prototype(uid) => write!(writer, "[1,{uid}]"),
         }
@@ -440,9 +449,9 @@ impl Input<'_> {
 
 #[derive(Clone, Copy)]
 pub(crate) enum Fields<'strings> {
-    Variable(VariableRef),
-    List(ListRef),
-    Value(usize),
+    Variable(VariableRef<'strings>),
+    List(ListRef<'strings>),
+    Value(tec::Id<Parameter>),
     Operator(&'static str),
     KeyOption(&'strings str),
     BroadcastOption(&'strings str),
@@ -456,11 +465,11 @@ impl Fields<'_> {
         match self {
             Self::Variable(VariableRef(id)) => {
                 let name = &target.variables[*id].name;
-                write!(writer, r#"{{"VARIABLE":[{name:?},"{id}"]}}"#)
+                write!(writer, r#"{{"VARIABLE":[{name:?},"{}"]}}"#, id.to_u32())
             }
             Self::List(ListRef(id)) => {
                 let name = &target.lists[*id].name;
-                write!(writer, r#"{{"LIST":[{name:?},"{id}"]}}"#)
+                write!(writer, r#"{{"LIST":[{name:?},"{}"]}}"#, id.to_u32())
             }
             Self::Value(parameter) => {
                 let name = &target.parameters[*parameter].name;
@@ -479,32 +488,11 @@ impl Fields<'_> {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct Id(pub usize);
+pub(crate) struct Id(pub tec::Id<Block>);
 
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, r#""b{}""#, self.0)
-    }
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct OptionId(usize);
-
-impl From<Id> for OptionId {
-    fn from(value: Id) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<Option<Id>> for OptionId {
-    fn from(value: Option<Id>) -> Self {
-        Self(value.map_or(usize::MAX, |it| it.0))
-    }
-}
-
-impl OptionId {
-    pub(crate) fn get(self) -> Option<Id> {
-        (self.0 != usize::MAX).then_some(Id(self.0))
+        write!(f, r#""b{}""#, self.0.to_u32())
     }
 }
 
@@ -682,7 +670,7 @@ impl Opcode {
         clippy::match_same_arms,
         reason = "easier to keep opcodes in order when the arms aren't merged"
     )]
-    pub(crate) const fn input_count(self) -> Option<usize> {
+    pub(crate) const fn input_count(self) -> Option<u32> {
         Some(match self {
             Self::argument_reporter_boolean => 0,
             Self::argument_reporter_string_number => 0,
