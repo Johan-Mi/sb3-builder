@@ -311,7 +311,7 @@ impl<'strings> Target<'strings, '_> {
         self.custom_block_parameter_raw(range.at(index))
     }
 
-    pub fn custom_block_parameter_raw(&mut self, id: tec::Id<Parameter>) -> Operand<'strings> {
+    fn custom_block_parameter_raw(&mut self, id: tec::Id<Parameter>) -> Operand<'strings> {
         let opcode = match self.inner.parameters[id].kind {
             ParameterKind::StringOrNumber => Opcode::argument_reporter_string_number,
             ParameterKind::Boolean => Opcode::argument_reporter_boolean,
